@@ -20,7 +20,7 @@ const LIGHT = {
   accent: "#16a34a",
 };
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { saveCampaign, loadCampaigns, updateCampaign, deleteCampaign, signInWithGoogle, signOutUser, auth, saveClient, loadClients, updateClient, deleteClient } from "./firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -656,6 +656,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showDocs, setShowDocs] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [clientNotif, setClientNotif] = useState(null);
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -887,7 +888,28 @@ export default function App() {
       {view === "dashboard" && <DashboardView campaigns={campaigns} loading={loading} onNew={() => setView("wizard")} onToggleStatus={handleToggleStatus} onDelete={handleDelete} T={T} clients={clients} selectedClient={selectedClient} setSelectedClient={setSelectedClient} />}
       {view === "clients" && <ClientsView clients={clients} campaigns={campaigns} T={T} onAdd={() => { setEditingClient(null); setShowClientModal(true); }} onEdit={(c) => { setEditingClient(c); setShowClientModal(true); }} onDelete={async (id) => { if (!confirm("Delete this client?")) return; await deleteClient(id); setClients(p => p.filter(c => c.id !== id)); }} />}
       {view === "wizard" && (launched
-        ? <LaunchScreen name={campaign.name || `${campaign.location} Campaign`} T={T} />
+        ? <>
+          <LaunchScreen name={campaign.name || `${campaign.location} Campaign`} T={T} />
+          {clientNotif && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 520, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, fontFamily: "'Courier New', monospace" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, marginBottom: 4, letterSpacing: 2 }}>📧 CLIENT NOTIFICATION READY</div>
+                <div style={{ fontSize: 11, color: T.muted, marginBottom: 16 }}>To: {clientNotif.to} · Subject: {clientNotif.subject}</div>
+                <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: 16, fontSize: 13, color: T.text, lineHeight: 1.8, marginBottom: 16, whiteSpace: "pre-wrap" }}>{clientNotif.body}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { navigator.clipboard.writeText(clientNotif.body); }}
+                    style={{ flex: 1, padding: "10px", background: T.accent+"22", border: `1px solid ${T.accent}`, color: T.accent, borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                    📋 COPY EMAIL
+                  </button>
+                  <button onClick={() => setClientNotif(null)}
+                    style={{ flex: 1, padding: "10px", background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+                    DISMISS
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
         : <WizardView step={step} setStep={setStep} campaign={campaign} update={update} toggleInterest={toggleInterest} canNext={canNext} totalBudget={totalBudget} estImpressions={estImpressions} estClicks={estClicks} onLaunch={handleLaunch} saving={saving} T={T} clients={clients} selectedClient={selectedClient} setSelectedClient={setSelectedClient} />
       )}
       {showClientModal && <ClientModal T={T} client={editingClient} onClose={() => setShowClientModal(false)} onSave={async (data) => {
@@ -1065,30 +1087,184 @@ function StepPlatform({ campaign, update, T }) {
 }
 
 function StepGeofence({ campaign, update, T }) {
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapInstance, setMapInstance] = useState(null);
+  const [circle, setCircle] = useState(null);
+  const [marker, setMarker] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [competitors, setCompetitors] = useState([]);
+  const [compSearch, setCompSearch] = useState("");
+  const [compSearching, setCompSearching] = useState(false);
+  const [coords, setCoords] = useState(campaign.coords || null);
+  const mapRef = useRef(null);
+
+  // Load Leaflet CSS + JS
+  useEffect(() => {
+    if (window.L) { setMapLoaded(true); return; }
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload = () => setMapLoaded(true);
+    document.head.appendChild(script);
+  }, []);
+
+  // Init map
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || mapInstance) return;
+    const L = window.L;
+    const map = L.map(mapRef.current).setView([44.9778, -93.2650], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(map);
+    map.on("click", (e) => {
+      const { lat, lng } = e.latlng;
+      placeMarker(map, lat, lng);
+    });
+    setMapInstance(map);
+  }, [mapLoaded]);
+
+  // Update circle when radius changes
+  useEffect(() => {
+    if (!mapInstance || !coords) return;
+    const L = window.L;
+    if (circle) circle.remove();
+    const radiusMeters = campaign.radius * 1609.34;
+    const newCircle = L.circle([coords.lat, coords.lng], {
+      radius: radiusMeters,
+      color: "#22c55e",
+      fillColor: "#22c55e",
+      fillOpacity: 0.15,
+      weight: 2,
+    }).addTo(mapInstance);
+    setCircle(newCircle);
+  }, [campaign.radius, coords, mapInstance]);
+
+  const placeMarker = (map, lat, lng) => {
+    const L = window.L;
+    if (marker) marker.remove();
+    const newMarker = L.marker([lat, lng]).addTo(map);
+    setMarker(newMarker);
+    setCoords({ lat, lng });
+    update("coords", { lat, lng });
+    // Reverse geocode
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+      .then(r => r.json())
+      .then(d => {
+        const addr = d.display_name?.split(",").slice(0,3).join(",") || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        update("location", addr);
+      });
+  };
+
+  const geocodeSearch = async () => {
+    if (!campaign.location.trim() || !mapInstance) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(campaign.location)}&format=json&limit=1`);
+      const data = await res.json();
+      if (data[0]) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        mapInstance.setView([lat, lng], 15);
+        placeMarker(mapInstance, lat, lng);
+      }
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const searchCompetitors = async () => {
+    if (!compSearch.trim() || !coords) return;
+    setCompSearching(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(compSearch + " near " + campaign.location)}&format=json&limit=8&addressdetails=1`);
+      const data = await res.json();
+      setCompetitors(data);
+    } finally {
+      setCompSearching(false);
+    }
+  };
+
+  const fenceCompetitor = (comp) => {
+    const lat = parseFloat(comp.lat);
+    const lng = parseFloat(comp.lon);
+    if (mapInstance) {
+      mapInstance.setView([lat, lng], 16);
+      placeMarker(mapInstance, lat, lng);
+    }
+    const name = comp.display_name?.split(",")[0] || comp.name;
+    update("location", comp.display_name?.split(",").slice(0,3).join(","));
+    update("competitorName", name);
+  };
+
   return (
     <div>
-      <SectionTitle step={3} title="Set your geofence" sub="Define where your ads will trigger. Tighter fences = more relevant audience." T={T} />
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 24, marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>TARGET LOCATION</label>
+      <SectionTitle step={3} title="Set your geofence" sub="Click the map to place your fence, or search an address below." T={T} />
+
+      {/* Search bar */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input value={campaign.location} onChange={e => update("location", e.target.value)}
-          placeholder="e.g. 123 Main St, Chicago, IL"
-          style={{ width: "100%", background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "12px 14px", color: T.text, fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+          onKeyDown={e => e.key === "Enter" && geocodeSearch()}
+          placeholder="e.g. 123 Main St, Chicago, IL or Walmart, Minneapolis"
+          style={{ flex: 1, background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 14px", color: T.text, fontSize: 13, outline: "none" }} />
+        <button onClick={geocodeSearch} disabled={searching}
+          style={{ padding: "10px 20px", background: T.accent, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" }}>
+          {searching ? "..." : "📍 FIND"}
+        </button>
       </div>
-      <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24, marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>RADIUS: {campaign.radius} MILE{campaign.radius !== 1 ? "S" : ""}</label>
-        <input type="range" min={0.1} max={10} step={0.1} value={campaign.radius} onChange={e => update("radius", parseFloat(e.target.value))} style={{ width: "100%", accentColor: "#22c55e" }} />
+
+      {/* Map */}
+      <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`, marginBottom: 16 }}>
+        {!mapLoaded && (
+          <div style={{ height: 380, background: T.card, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13 }}>
+            Loading map...
+          </div>
+        )}
+        <div ref={mapRef} style={{ height: 380, display: mapLoaded ? "block" : "none" }} />
+      </div>
+
+      {/* Radius slider */}
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20, marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>FENCE RADIUS: {campaign.radius} MILE{campaign.radius !== 1 ? "S" : ""}</label>
+        <input type="range" min={0.1} max={10} step={0.1} value={campaign.radius} onChange={e => update("radius", parseFloat(e.target.value))} style={{ width: "100%", accentColor: T.accent }} />
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, marginTop: 4 }}>
-          <span>0.1 mi</span><span>5 mi</span><span>10 mi</span>
+          <span>0.1 mi (hyperlocal)</span><span>5 mi</span><span>10 mi (broad)</span>
         </div>
       </div>
-      <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "relative", width: 180, height: 180 }}>
-          {[1, 0.7, 0.45].map((scale, i) => (
-            <div key={i} style={{ position: "absolute", top: "50%", left: "50%", width: 160 * scale, height: 160 * scale, transform: "translate(-50%,-50%)", borderRadius: "50%", border: `1px solid #22c55e${["33","22","11"][i]}`, background: `#22c55e${["08","04","02"][i]}` }} />
-          ))}
-          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 20 }}>📍</div>
-          <div style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", fontSize: 11, color: "#22c55e", whiteSpace: "nowrap" }}>{campaign.radius} mile fence</div>
+
+      {/* Competitor Finder */}
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, letterSpacing: 2, marginBottom: 4 }}>⚔️ COMPETITOR FINDER</div>
+        <div style={{ fontSize: 11, color: T.muted, marginBottom: 12 }}>Search nearby businesses to fence their location and conquest their customers.</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <input value={compSearch} onChange={e => setCompSearch(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && searchCompetitors()}
+            placeholder="e.g. Staples, Best Buy, dental office..."
+            style={{ flex: 1, background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "9px 12px", color: T.text, fontSize: 13, outline: "none" }} />
+          <button onClick={searchCompetitors} disabled={compSearching || !coords}
+            style={{ padding: "9px 18px", background: compSearching ? T.border : T.accent+"22", color: T.accent, border: `1px solid ${T.accent}44`, borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+            {compSearching ? "..." : "SEARCH"}
+          </button>
         </div>
+        {!coords && <div style={{ fontSize: 11, color: T.muted }}>📍 Place a pin on the map first to search nearby competitors.</div>}
+        {competitors.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {competitors.map((c, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6 }}>
+                <div>
+                  <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{c.display_name?.split(",")[0]}</div>
+                  <div style={{ fontSize: 11, color: T.muted }}>{c.display_name?.split(",").slice(1,3).join(",")}</div>
+                </div>
+                <button onClick={() => fenceCompetitor(c)}
+                  style={{ padding: "6px 14px", background: T.accent, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+                  FENCE THIS
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
