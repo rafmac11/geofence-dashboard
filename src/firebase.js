@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc, serverTimestamp, query, where } from 'firebase/firestore'
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth'
 
-// These values come from your .env file (safe — Vite exposes VITE_ prefixed vars only)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -13,19 +13,30 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 export const db = getFirestore(app)
+export const auth = getAuth(app)
+const provider = new GoogleAuthProvider()
 
-// ─── Campaign CRUD helpers ───────────────────────────────────────────────────
+export async function signInWithGoogle() {
+  const result = await signInWithPopup(auth, provider)
+  return result.user
+}
 
-export async function saveCampaign(campaign) {
+export async function signOutUser() {
+  await signOut(auth)
+}
+
+export async function saveCampaign(campaign, userId) {
   const docRef = await addDoc(collection(db, 'campaigns'), {
     ...campaign,
+    userId,
     createdAt: serverTimestamp(),
   })
   return docRef.id
 }
 
-export async function loadCampaigns() {
-  const snapshot = await getDocs(collection(db, 'campaigns'))
+export async function loadCampaigns(userId) {
+  const q = query(collection(db, 'campaigns'), where('userId', '==', userId))
+  const snapshot = await getDocs(q)
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 

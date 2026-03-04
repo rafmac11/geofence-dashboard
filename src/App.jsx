@@ -21,7 +21,8 @@ const LIGHT = {
 };
 
 import { useState, useEffect } from "react";
-import { saveCampaign, loadCampaigns, updateCampaign, deleteCampaign } from "./firebase.js";
+import { saveCampaign, loadCampaigns, updateCampaign, deleteCampaign, signInWithGoogle, signOutUser, auth } from "./firebase.js";
+import { onAuthStateChanged } from "firebase/auth";
 
 const STEPS = ["Goal", "Platform", "Geofence", "Audience", "Creative", "Budget", "Launch"];
 
@@ -44,6 +45,77 @@ const PLATFORMS = [
 
 const INTERESTS = ["Shoppers", "Sports Fans", "Foodies", "Tech Enthusiasts", "Parents", "Commuters", "Travelers", "Fitness", "Homeowners", "Renters", "DIY & Home Improvement", "Luxury Buyers"];
 
+const BUDGET_RECS = {
+  foottraffic: { google: [30,50], meta: [20,40], groundtruth: [50,100], simpli: [60,120], tiktok: [25,50], snapchat: [20,40] },
+  conquest:    { google: [50,100], meta: [30,60], groundtruth: [80,150], simpli: [80,160], tiktok: [30,60], snapchat: [25,50] },
+  events:      { google: [40,80], meta: [25,50], groundtruth: [60,120], simpli: [60,120], tiktok: [30,60], snapchat: [30,60] },
+  retarget:    { google: [20,40], meta: [15,30], groundtruth: [40,80], simpli: [50,100], tiktok: [20,40], snapchat: [15,30] },
+  awareness:   { google: [25,50], meta: [20,40], groundtruth: [50,100], simpli: [50,100], tiktok: [20,40], snapchat: [20,40] },
+};
+
+const PLATFORM_CHECKLIST = {
+  google: [
+    { step: "Sign in to Google Ads", url: "https://ads.google.com", detail: "Go to ads.google.com and sign in or create an account." },
+    { step: "Create a new campaign", url: "", detail: "Click '+ New Campaign' → Choose your goal (Visits, Awareness, etc.)" },
+    { step: "Set location targeting", url: "", detail: "Under Settings → Locations → Advanced search → Radius targeting. Enter your address and set your radius." },
+    { step: "Set your budget & bidding", url: "", detail: "Enter your daily budget. Use 'Maximize Clicks' to start, switch to Target CPA after 30 conversions." },
+    { step: "Create your ad", url: "", detail: "Use the headline and body copy from your campaign brief below. Add all 3 headline variations for best performance." },
+    { step: "Enable Location Extensions", url: "", detail: "Under Ads & Extensions → Extensions → Location. This shows your address in the ad." },
+    { step: "Set ad schedule", url: "", detail: "Under Settings → Ad Schedule. Run ads only during business hours to save budget." },
+    { step: "Launch & monitor", url: "", detail: "Click Publish. Check performance daily for the first week. Pause keywords with 0 clicks after 2 weeks." },
+  ],
+  meta: [
+    { step: "Open Meta Ads Manager", url: "https://www.facebook.com/adsmanager", detail: "Go to facebook.com/adsmanager. You need a Business Page to run ads." },
+    { step: "Create a new campaign", url: "", detail: "Click '+ Create' → Choose objective: Traffic (website clicks) or Store Traffic (foot visits)." },
+    { step: "Set location at Ad Set level", url: "", detail: "Under Audience → Locations → Drop Pin → enter your address → set radius 1–5 miles. Select 'People recently in this location'." },
+    { step: "Define your audience", url: "", detail: "Age: match your campaign settings. Interests: add relevant categories. Detailed targeting expansion: ON for more reach." },
+    { step: "Set your budget", url: "", detail: "Set your daily budget. Use Campaign Budget Optimization (CBO) if running multiple ad sets." },
+    { step: "Create your ad", url: "", detail: "Upload your image/video. Paste your headline and body copy from the brief below. Add your website URL." },
+    { step: "Install Meta Pixel", url: "https://www.facebook.com/business/help/952192354843755", detail: "Add the Pixel to your website for retargeting future visitors. Essential for measuring conversions." },
+    { step: "Launch & monitor", url: "", detail: "Click Publish. Give it 3–5 days before judging performance — Meta's algorithm needs time to optimize." },
+  ],
+  groundtruth: [
+    { step: "Contact GroundTruth sales", url: "https://www.groundtruth.com/contact/", detail: "GroundTruth requires direct contact. Request a managed campaign or self-serve platform access." },
+    { step: "Define your geofence polygon", url: "", detail: "Provide the exact address(es) to fence. GroundTruth can fence individual buildings, parking lots, or event venues precisely." },
+    { step: "Set up conversion zone", url: "", detail: "Define your own location as a 'conversion zone' so GroundTruth can measure foot traffic lift from your ads." },
+    { step: "Upload your creative", url: "", detail: "Provide banner ads in standard IAB sizes: 300x250, 320x50, 728x90. Use your headline and body copy from the brief." },
+    { step: "Set audience targeting", url: "", detail: "Add demographic filters: age, gender, interests. Enable Venue Replay to retarget past visitors." },
+    { step: "Set flight dates & budget", url: "", detail: "Minimum $1,000 recommended. Set start/end dates. GroundTruth will pace your budget automatically." },
+    { step: "Review & approve", url: "", detail: "GroundTruth reviews all campaigns before launch (usually 24–48 hours). Ensure creative meets their specs." },
+    { step: "Monitor walk-in attribution", url: "", detail: "Track verified store visits in your dashboard. Compare to pre-campaign baseline to measure true lift." },
+  ],
+  simpli: [
+    { step: "Sign up for Simpli.fi", url: "https://simpli.fi/contact/", detail: "Contact Simpli.fi for platform access. Minimum spend is typically $1,500/month." },
+    { step: "Choose targeting type", url: "", detail: "Select Geofencing, Addressable Geofencing (by address list), or Search Retargeting (by keyword)." },
+    { step: "Upload address list (if addressable)", url: "", detail: "Export addresses from your CRM or mailing list. Upload as CSV. Simpli.fi matches to device IDs." },
+    { step: "Set geofence boundaries", url: "", detail: "Draw your target area on the map. You can target multiple locations simultaneously." },
+    { step: "Upload creative assets", url: "", detail: "Provide HTML5 or image banners. Standard sizes: 300x250, 728x90, 160x600, 320x50." },
+    { step: "Configure campaign settings", url: "", detail: "Set flight dates, daily cap, frequency cap (recommend max 5 impressions/user/day), and bid price." },
+    { step: "Enable conversion tracking", url: "", detail: "Place their conversion pixel on your thank-you page or use their foot traffic attribution tool." },
+    { step: "Launch & optimize", url: "", detail: "Review performance at 72 hours. Adjust bids for high-performing placements. Pause underperforming sites." },
+  ],
+  tiktok: [
+    { step: "Open TikTok Ads Manager", url: "https://ads.tiktok.com", detail: "Go to ads.tiktok.com. Create a Business Account if you don't have one." },
+    { step: "Create a new campaign", url: "", detail: "Click '+ Create' → Choose objective: Traffic, Conversions, or Reach. Minimum budget $50/day." },
+    { step: "Set location at Ad Group level", url: "", detail: "Under Audience → Location → select your country → choose City or DMA region. TikTok doesn't support radius targeting." },
+    { step: "Define audience", url: "", detail: "Age: set to match your campaign. Interests: add relevant categories. Behavior: add relevant actions." },
+    { step: "Set budget & schedule", url: "", detail: "Set daily budget ($20+ minimum per ad group). Schedule ads during peak hours for your audience." },
+    { step: "Create your TikTok ad", url: "", detail: "Upload a vertical video (9:16, 15–60 seconds). Add text overlay with your headline. Include clear CTA button." },
+    { step: "Enable TikTok Pixel", url: "https://ads.tiktok.com/help/article/tiktok-pixel", detail: "Install the TikTok Pixel on your website to track conversions and build retargeting audiences." },
+    { step: "Launch & monitor", url: "", detail: "Allow 7 days before optimizing — TikTok's algorithm needs data. Refresh creative every 2 weeks to avoid fatigue." },
+  ],
+  snapchat: [
+    { step: "Open Snapchat Ads Manager", url: "https://ads.snapchat.com", detail: "Go to ads.snapchat.com. Create a Business Account with your Snapchat account." },
+    { step: "Create a new campaign", url: "", detail: "Click '+ New Campaign' → Choose goal: Awareness, Traffic, or Conversions." },
+    { step: "Set location targeting", url: "", detail: "Under Audience → Demographics → Location. Select cities or zip codes near your target area." },
+    { step: "Define your audience", url: "", detail: "Age range (note: Snapchat skews 13–34). Add Lifestyle Categories relevant to your business." },
+    { step: "Set budget", url: "", detail: "Minimum $5/day. Recommended $20–50/day for local campaigns. Run Thursday–Sunday for best results." },
+    { step: "Create your Snap Ad", url: "", detail: "Upload a vertical video or image (9:16). Keep it under 10 seconds. Add your headline as text overlay. Include swipe-up URL." },
+    { step: "Add Snap Pixel", url: "https://businesshelp.snap.com/s/article/snap-pixel-about", detail: "Install the Snap Pixel for conversion tracking and to build Custom Audiences for retargeting." },
+    { step: "Launch & monitor", url: "", detail: "Check Story completion rate (aim for 50%+). Refresh creative every 2 weeks — Snapchat audiences fatigue quickly." },
+  ],
+};
+
 const BLANK_CAMPAIGN = {
   goal: null, platform: null, location: "", radius: 1, fence_type: "circle",
   ageMin: 18, ageMax: 55, gender: "all", interests: [],
@@ -51,6 +123,10 @@ const BLANK_CAMPAIGN = {
   dailyBudget: 50, duration: 14, name: "",
   status: "active", spent: 0, impressions: 0, clicks: 0, conversions: 0,
 };
+
+const ALLOWED_EMAILS = [
+  "rafael@jrcopier.com",
+];
 
 const pulse = `
 @keyframes pulse-ring {
@@ -72,6 +148,329 @@ const pulse = `
 .blink { animation: blink 1.8s infinite; }
 `;
 
+
+
+// ─── Copy Brief Component ─────────────────────────────────────────────────────
+
+function CopyBrief({ campaign, totalBudget, T }) {
+  const [copied, setCopied] = useState(null);
+  const platform = PLATFORMS.find(p => p.id === campaign.platform);
+  const goal = GOALS.find(g => g.id === campaign.goal);
+
+  const formats = {
+    google: `GOOGLE ADS BRIEF
+Campaign: ${campaign.name || "Untitled"}
+Goal: ${goal?.label}
+Location: ${campaign.location} (${campaign.radius} mi radius)
+Audience: Ages ${campaign.ageMin}–${campaign.ageMax}, ${campaign.gender}
+Interests: ${campaign.interests.join(", ")}
+
+HEADLINES (max 30 chars each):
+1. ${campaign.headline.slice(0,30)}
+2. [Add variation here]
+3. [Add variation here]
+
+DESCRIPTIONS (max 90 chars each):
+1. ${campaign.body.slice(0,90)}
+2. [Add variation here]
+
+CTA: ${campaign.cta}
+Daily Budget: $${campaign.dailyBudget} | Duration: ${campaign.duration} days | Total: $${totalBudget}`,
+
+    meta: `META ADS BRIEF
+Campaign: ${campaign.name || "Untitled"}
+Goal: ${goal?.label}
+Location: ${campaign.location} (${campaign.radius} mi radius)
+Audience: Ages ${campaign.ageMin}–${campaign.ageMax}, ${campaign.gender}
+Interests: ${campaign.interests.join(", ")}
+
+PRIMARY TEXT (max 125 chars):
+${campaign.body.slice(0,125)}
+
+HEADLINE (max 40 chars):
+${campaign.headline.slice(0,40)}
+
+DESCRIPTION (max 30 chars):
+${campaign.cta}
+
+Daily Budget: $${campaign.dailyBudget} | Duration: ${campaign.duration} days | Total: $${totalBudget}`,
+
+    tiktok: `TIKTOK ADS BRIEF
+Campaign: ${campaign.name || "Untitled"}
+Goal: ${goal?.label}
+Location: ${campaign.location}
+Audience: Ages ${campaign.ageMin}–${campaign.ageMax}, ${campaign.gender}
+Interests: ${campaign.interests.join(", ")}
+
+AD TEXT (max 100 chars):
+${campaign.body.slice(0,100)}
+
+DISPLAY NAME: [Your business name]
+CTA BUTTON: ${campaign.cta}
+
+Video specs: 9:16 vertical, 15–60 seconds, with captions
+Daily Budget: $${campaign.dailyBudget} | Duration: ${campaign.duration} days | Total: $${totalBudget}`,
+
+    snapchat: `SNAPCHAT ADS BRIEF
+Campaign: ${campaign.name || "Untitled"}
+Goal: ${goal?.label}
+Location: ${campaign.location}
+Audience: Ages ${campaign.ageMin}–${campaign.ageMax}, ${campaign.gender}
+
+HEADLINE (max 34 chars):
+${campaign.headline.slice(0,34)}
+
+BRAND NAME: [Your business name]
+CTA: ${campaign.cta}
+
+Creative specs: 9:16 vertical image or video, under 10 seconds
+Daily Budget: $${campaign.dailyBudget} | Duration: ${campaign.duration} days | Total: $${totalBudget}`,
+
+    groundtruth: `GROUNDTRUTH CAMPAIGN BRIEF
+Campaign: ${campaign.name || "Untitled"}
+Goal: ${goal?.label}
+Target Location: ${campaign.location} (${campaign.radius} mi radius)
+Audience: Ages ${campaign.ageMin}–${campaign.ageMax}, ${campaign.gender}
+Interests: ${campaign.interests.join(", ")}
+
+AD COPY:
+Headline: ${campaign.headline}
+Body: ${campaign.body}
+CTA: ${campaign.cta}
+
+Banner sizes needed: 300x250, 320x50, 728x90, 160x600
+Total Budget: $${totalBudget} ($${campaign.dailyBudget}/day × ${campaign.duration} days)`,
+
+    simpli: `SIMPLI.FI CAMPAIGN BRIEF
+Campaign: ${campaign.name || "Untitled"}
+Goal: ${goal?.label}
+Target Location: ${campaign.location} (${campaign.radius} mi radius)
+Audience: Ages ${campaign.ageMin}–${campaign.ageMax}, ${campaign.gender}
+Interests: ${campaign.interests.join(", ")}
+
+AD COPY:
+Headline: ${campaign.headline}
+Body: ${campaign.body}
+CTA: ${campaign.cta}
+
+Banner sizes needed: 300x250, 728x90, 160x600, 320x50
+Total Budget: $${totalBudget} ($${campaign.dailyBudget}/day × ${campaign.duration} days)`,
+  };
+
+  const copyText = (platformId) => {
+    const text = formats[platformId] || formats.google;
+    navigator.clipboard.writeText(text);
+    setCopied(platformId);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <div style={{ marginTop: 20, background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, letterSpacing: 2, marginBottom: 4 }}>📋 ONE-CLICK COPY FOR EACH PLATFORM</div>
+      <div style={{ fontSize: 11, color: T.muted, marginBottom: 14 }}>Copy your ad brief formatted for the platform you're uploading to.</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {PLATFORMS.map(p => (
+          <button key={p.id} onClick={() => copyText(p.id)}
+            style={{ padding: "8px 16px", borderRadius: 4, border: `1px solid`, borderColor: copied === p.id ? T.accent : T.border, background: copied === p.id ? T.accent+"22" : "transparent", color: copied === p.id ? T.accent : T.text, cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6 }}>
+            <span>{p.logo}</span>
+            {copied === p.id ? "✓ COPIED!" : `Copy for ${p.name}`}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Launch Checklist Component ───────────────────────────────────────────────
+
+function LaunchChecklist({ platform, steps, T }) {
+  const [checked, setChecked] = useState({});
+  const toggle = (i) => setChecked(p => ({ ...p, [i]: !p[i] }));
+  const doneCount = Object.values(checked).filter(Boolean).length;
+
+  return (
+    <div style={{ marginTop: 20, background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: T.headerBg }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, letterSpacing: 2 }}>🚀 {platform.name.toUpperCase()} LAUNCH CHECKLIST</div>
+          <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Step-by-step guide to go live</div>
+        </div>
+        <div style={{ fontSize: 12, color: doneCount === steps.length ? T.accent : T.muted, fontWeight: 700 }}>
+          {doneCount}/{steps.length} DONE
+        </div>
+      </div>
+      {steps.map((s, i) => (
+        <div key={i} onClick={() => toggle(i)}
+          style={{ padding: "14px 20px", borderBottom: i < steps.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", gap: 14, cursor: "pointer", background: checked[i] ? T.accent+"08" : "transparent", transition: "background 0.15s" }}>
+          <div style={{ width: 22, height: 22, borderRadius: 4, border: `2px solid`, borderColor: checked[i] ? T.accent : T.border, background: checked[i] ? T.accent : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#000", fontWeight: 700, fontSize: 13, marginTop: 1 }}>
+            {checked[i] ? "✓" : ""}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: checked[i] ? T.muted : T.text, textDecoration: checked[i] ? "line-through" : "none", marginBottom: 3 }}>
+              Step {i+1}: {s.step}
+            </div>
+            <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.6 }}>{s.detail}</div>
+            {s.url && <a href={s.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+              style={{ fontSize: 11, color: T.accent, marginTop: 4, display: "inline-block" }}>→ Open {s.step} ↗</a>}
+          </div>
+        </div>
+      ))}
+      {doneCount === steps.length && (
+        <div style={{ padding: "16px 20px", background: T.accent+"22", textAlign: "center", fontSize: 13, fontWeight: 700, color: T.accent }}>
+          🎉 ALL STEPS COMPLETE — YOU'RE LIVE!
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Documentation Panel ─────────────────────────────────────────────────────
+
+const DOCS = [
+  {
+    id: "overview",
+    icon: "🗺️",
+    title: "What is Geofencing?",
+    content: [
+      { h: "How It Works", p: "Geofencing uses GPS, Wi-Fi, and cellular signals to draw a virtual boundary around a real-world location. When a mobile user enters or exits that boundary, they receive a targeted ad on their device in real time." },
+      { h: "Why It Works", p: "Geofencing delivers ads at the moment of highest intent — when someone is physically near your location, at a competitor, or attending a relevant event. This hyper-local timing drives significantly higher conversion rates than standard display ads." },
+      { h: "Key Metrics", p: "Track these KPIs: CTR (Click-Through Rate) — aim for 0.3–0.8%. Foot Traffic Attribution — how many ad viewers visited in person. Conversion Rate — actions taken (calls, purchases, signups). CPM (Cost Per 1,000 Impressions) — typically $3–$15 for geofencing." },
+    ]
+  },
+  {
+    id: "google",
+    icon: "G",
+    title: "Google Ads",
+    content: [
+      { h: "Setup: Location Targeting", p: "In Google Ads, go to Campaigns → Settings → Locations. Click 'Advanced search' and select 'Radius targeting'. Enter your address and set a radius of 0.5–5 miles. Google uses GPS and IP data to target users in that zone." },
+      { h: "Best Ad Formats", p: "Search Ads: Appear when users search Google near your location. Ideal for high-intent customers. Display Ads: Banner ads shown in apps and websites. Best for awareness. Local Campaigns: Auto-optimized for store visits using Maps, Search, YouTube, and Display simultaneously." },
+      { h: "Retargeting with RLSA", p: "Remarketing Lists for Search Ads (RLSA) lets you bid higher for past website visitors who search near your location. Go to Audiences → Remarketing → add your website visitors list. Then increase bids by 20–50% for this segment when they're in your geofence." },
+      { h: "Budget & Bidding", p: "Start with $20–50/day. Use 'Maximize Clicks' initially to gather data, then switch to 'Target CPA' once you have 30+ conversions. Set ad scheduling to run only during business hours for efficiency." },
+      { h: "Pro Tips", p: "Enable 'Location Extensions' to show your address and phone number. Use 'Callout Extensions' to highlight local offers like 'Visit Us Today — 0.3 miles away'. Set negative radius exclusions to avoid wasting budget on distant users." },
+    ]
+  },
+  {
+    id: "meta",
+    icon: "f",
+    title: "Meta Ads (Facebook & Instagram)",
+    content: [
+      { h: "Setup: Location Targeting", p: "In Meta Ads Manager, create a new campaign. At the Ad Set level, scroll to 'Audience' → 'Locations'. Select 'Drop Pin' and enter your address. Choose a 1–5 mile radius. Select 'People recently in this location' for foot traffic campaigns." },
+      { h: "Retargeting with Custom Audiences", p: "Meta's retargeting is among the most powerful available. Create a Custom Audience from: Website visitors (install Meta Pixel first), Customer list (upload emails/phones), App activity, or Video viewers. Then target these users when they enter your geofence for double-intent targeting." },
+      { h: "Lookalike Audiences", p: "Once you have 100+ customers, create a Lookalike Audience. Meta finds users with similar demographics and behaviors to your best customers, within your geofenced area. Start with 1% lookalike for highest match quality." },
+      { h: "Best Ad Formats", p: "Single Image: Simple, fast to create. Best for offers and promotions. Carousel: Show multiple products or locations. Video: 15-second videos get 3x more engagement. Stories: Full-screen immersive format, swipe-up to your landing page. Use Instagram Reels for younger demographics." },
+      { h: "Budget Strategy", p: "Facebook recommends at least $5/day per ad set. For local geofencing, $15–30/day is effective. Use Campaign Budget Optimization (CBO) to let Meta allocate budget to best-performing ad sets automatically. Run ads 7 days before and during your promotion period." },
+    ]
+  },
+  {
+    id: "groundtruth",
+    icon: "GT",
+    title: "GroundTruth",
+    content: [
+      { h: "Why GroundTruth", p: "GroundTruth is purpose-built for location advertising with the most precise geofencing available — down to specific store aisles. They verify location data against 4+ signals to eliminate GPS fraud, giving you real attribution." },
+      { h: "Setup Process", p: "Contact GroundTruth directly or through a media agency. Define your target location (they can fence specific buildings, parking lots, or event venues as polygons). Set your audience targeting, creative, and flight dates. Minimum spend is typically $1,000/month." },
+      { h: "Competitive Conquesting", p: "GroundTruth excels at competitor targeting — place a geofence directly around a rival's location. When their customers visit, your ad appears offering a better deal. This is one of the highest-ROI strategies in local advertising. Maintain a 100-meter minimum distance to avoid customer confusion." },
+      { h: "Venue Replay", p: "GroundTruth's 'Venue Replay' lets you retarget people who visited a location in the past 30–90 days, even after they leave. Build a pool of competitor visitors and retarget them at home, at work, and everywhere they browse." },
+      { h: "Measurement", p: "GroundTruth provides Walk-In Attribution — verified in-store visits driven by your ads. They compare exposed vs. unexposed users to calculate true lift. Expect a 10–30% visit lift for well-executed campaigns." },
+    ]
+  },
+  {
+    id: "simpli",
+    icon: "S",
+    title: "Simpli.fi",
+    content: [
+      { h: "What Makes Simpli.fi Unique", p: "Simpli.fi specializes in unstructured data targeting — they can target based on specific addresses, zip codes, or even individual household addresses (addressable geofencing). This is ideal for direct mail matching and hyperlocal B2B targeting." },
+      { h: "Addressable Geofencing", p: "Upload a list of physical addresses (e.g., your customer mailing list or a list of businesses). Simpli.fi places a precise fence around each address and serves ads to devices detected there. This bridges offline and digital marketing." },
+      { h: "Search Retargeting", p: "Target people who searched specific keywords on Google or Bing in the past 30 days, within your geographic area. Example: Target anyone within 5 miles who searched 'roof repair' in the last month. Extremely high intent." },
+      { h: "Programmatic Buying", p: "Simpli.fi accesses 200+ ad exchanges, showing your ad across thousands of apps and websites. Their algorithm optimizes in real-time for your goal — visits, clicks, or conversions. CPMs typically range $8–$20 for premium placements." },
+      { h: "Reporting", p: "Access real-time dashboards showing impressions, clicks, CTR, and foot traffic conversion. Compare performance by location, time of day, and creative. Use this data to optimize radius and budget allocation." },
+    ]
+  },
+  {
+    id: "tiktok",
+    icon: "T",
+    title: "TikTok Ads",
+    content: [
+      { h: "Setup: Location Targeting", p: "In TikTok Ads Manager, create a campaign with 'Traffic' or 'Conversions' objective. At the Ad Group level, under Audience → Location, select your country then 'Specific Locations'. You can target by city, state, or DMA (metro area). TikTok does not yet support radius-based geofencing — use city/DMA targeting." },
+      { h: "Best Audience for TikTok", p: "TikTok's core audience is 18–35. It's ideal for restaurants, entertainment, beauty, fitness, fashion, and tech brands. Interest targeting categories relevant to local businesses: Food & Beverage, Sports & Outdoors, Home & Garden, Automotive." },
+      { h: "Ad Formats", p: "TopView: First ad users see when opening TikTok. Highest visibility, premium cost. In-Feed Ads: Appear in the For You feed, skippable after 3 seconds. Branded Hashtag Challenge: Encourage user-generated content. Spark Ads: Boost your own organic TikTok posts — most authentic format." },
+      { h: "Creative Best Practices", p: "First 3 seconds are critical — hook immediately. Use vertical video (9:16). Add captions — 80% watch without sound. Feature real people, not polished ads. Include a clear CTA overlay. User-generated style content consistently outperforms produced ads on TikTok." },
+      { h: "Budget & Bidding", p: "Minimum campaign budget is $50/day. Minimum ad group budget is $20/day. Use 'Lowest Cost' bidding to start. Once you have data, switch to 'Cost Cap' to control your CPA. Run for at least 7 days before optimizing — TikTok's algorithm needs time to learn." },
+    ]
+  },
+  {
+    id: "snapchat",
+    icon: "👻",
+    title: "Snapchat Ads",
+    content: [
+      { h: "Setup: Location Targeting", p: "In Snapchat Ads Manager, at the Ad Set level click 'Audiences' → 'Demographics' → 'Location'. Select specific cities, zip codes, or DMA regions. Snapchat also offers 'Snap to Store' measurement to track in-store visits after seeing an ad." },
+      { h: "Snap Map Advertising", p: "Snap Map lets users see what's happening around them. Submit your business location to appear on the map. Run 'Place Promotions' to appear when users explore nearby locations — extremely high purchase intent for food, entertainment, and events." },
+      { h: "Best Ad Formats", p: "Single Image/Video Ads: Run in Stories, with swipe-up to your website. Story Ads: Appear in the Discover section — good for brand storytelling. Collection Ads: Show multiple products with a tile grid — great for e-commerce. Filters: Location-based overlays users add to their own Snaps — viral brand exposure." },
+      { h: "Audience", p: "Snapchat reaches 90% of 13–24 year olds and 75% of 13–34 year olds in the US. Best for: restaurants, entertainment venues, beauty, fashion, events, colleges, and any brand targeting Gen Z. Avoid if your customer is primarily 45+." },
+      { h: "Budget Tips", p: "Minimum budget is $5/day. Start with $20–50/day for local campaigns. Use 'Auto-Bidding' initially. Snapchat ads perform best Thursday–Sunday. A/B test multiple creatives — Snapchat's audience fatigues quickly. Refresh creatives every 2 weeks." },
+    ]
+  },
+  {
+    id: "bestpractices",
+    icon: "⚡",
+    title: "Best Practices",
+    content: [
+      { h: "Choosing Your Radius", p: "Urban areas: 0.5–1 mile. Suburban areas: 1–3 miles. Rural areas: 3–5 miles. Keep it tight — a 1-mile radius in a dense city can reach 50,000+ people. Larger fences dilute relevance. For competitor conquesting, fence only the competitor's parking lot and immediate block." },
+      { h: "Timing Your Campaigns", p: "Run ads 1–2 hours before peak times (lunch hour, Friday evenings, weekend mornings). Use dayparting to show ads only during business hours. Increase bids by 20% on weekends. Pause campaigns when you're closed — wasted budget on unreachable customers." },
+      { h: "Creative That Converts", p: "Lead with location: 'You're 0.3 miles away.' Create urgency: 'Today Only' or 'This Weekend'. Show the offer immediately — don't make them guess. Use a single clear CTA. Mobile-first design: large text, bold visuals, minimal copy. A/B test your headline — it makes the biggest difference." },
+      { h: "Attribution & Measurement", p: "Set up conversion tracking before launching. For offline businesses, use unique promo codes per channel to track source. Use UTM parameters on all landing page URLs. Compare week-over-week foot traffic against your ad spend. True attribution takes 4–6 weeks of consistent data." },
+      { h: "Budget Allocation", p: "Starter budget: $500–1,000/month across 1–2 platforms. Split: 50% Google (search intent), 30% Meta (retargeting), 20% programmatic (GroundTruth/Simpli.fi). Scale what works — double budget on campaigns hitting 0.5%+ CTR. Pause anything below 0.1% CTR after 2 weeks." },
+    ]
+  },
+];
+
+function DocsPanel({ T, onClose }) {
+  const [activeDoc, setActiveDoc] = useState("overview");
+  const doc = DOCS.find(d => d.id === activeDoc);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex" }} onClick={onClose}>
+      <div style={{ flex: 1, background: "rgba(0,0,0,0.6)" }} />
+      <div style={{ width: 780, background: T.bg, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Docs Header */}
+        <div style={{ padding: "20px 28px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: T.headerBg, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: T.accent, letterSpacing: 2 }}>📚 PLATFORM DOCS</div>
+            <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Setup guides for every ad platform</div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.muted, width: 32, height: 32, borderRadius: 4, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        </div>
+
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          {/* Sidebar nav */}
+          <div style={{ width: 200, borderRight: `1px solid ${T.border}`, padding: "16px 0", flexShrink: 0, overflowY: "auto", background: T.headerBg }}>
+            {DOCS.map(d => (
+              <button key={d.id} onClick={() => setActiveDoc(d.id)}
+                style={{ width: "100%", textAlign: "left", padding: "10px 20px", background: activeDoc === d.id ? T.accent+"22" : "transparent", borderLeft: activeDoc === d.id ? `3px solid ${T.accent}` : "3px solid transparent", border: "none", color: activeDoc === d.id ? T.accent : T.muted, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s" }}>
+                <span style={{ fontSize: 14 }}>{d.icon}</span>
+                <span style={{ fontWeight: activeDoc === d.id ? 700 : 400 }}>{d.title}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 4 }}>{doc.title}</div>
+            <div style={{ height: 2, width: 40, background: T.accent, marginBottom: 28, borderRadius: 2 }} />
+            {doc.content.map((section, i) => (
+              <div key={i} style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, letterSpacing: 1.5, marginBottom: 8, textTransform: "uppercase" }}>{section.h}</div>
+                <div style={{ fontSize: 13, color: T.text, lineHeight: 1.9, background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: "14px 18px" }}>{section.p}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState("dashboard");
   const [step, setStep] = useState(0);
@@ -82,17 +481,38 @@ export default function App() {
   const [launched, setLaunched] = useState(false);
   const [error, setError] = useState(null);
   const [theme, setTheme] = useState("dark");
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [showDocs, setShowDocs] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const T = theme === "dark" ? DARK : LIGHT;
 
-  // Load campaigns from Firebase on mount
+  // Listen for auth state changes
   useEffect(() => {
-    fetchCampaigns();
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u && !ALLOWED_EMAILS.includes(u.email)) {
+        await signOutUser();
+        setError("Access denied. Your email is not on the approved list.");
+        setAuthLoading(false);
+        return;
+      }
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return unsub;
   }, []);
 
+  // Load campaigns when user logs in
+  useEffect(() => {
+    if (user) fetchCampaigns();
+    else setCampaigns([]);
+  }, [user]);
+
   async function fetchCampaigns() {
+    if (!user) return;
     try {
       setLoading(true);
-      const data = await loadCampaigns();
+      const data = await loadCampaigns(user.uid);
       // Sort newest first
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setCampaigns(data);
@@ -139,7 +559,7 @@ export default function App() {
         estClicks,
         ctr: "—",
       };
-      const id = await saveCampaign(newCamp);
+      const id = await saveCampaign(newCamp, user.uid);
       setCampaigns(prev => [{ id, ...newCamp }, ...prev]);
       setLaunched(true);
       setTimeout(() => {
@@ -156,6 +576,22 @@ export default function App() {
     }
   };
 
+  const handleSignIn = async () => {
+    setSigningIn(true);
+    setError(null);
+    try {
+      const u = await signInWithGoogle();
+      if (!ALLOWED_EMAILS.includes(u.email)) {
+        await signOutUser();
+        setError("Access denied. Your email is not on the approved list.");
+      }
+    } catch (e) {
+      setError("Sign in failed. Please try again.");
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
   const handleToggleStatus = async (camp) => {
     const newStatus = camp.status === "active" ? "paused" : "active";
     await updateCampaign(camp.id, { status: newStatus });
@@ -168,9 +604,48 @@ export default function App() {
     setCampaigns(prev => prev.filter(c => c.id !== id));
   };
 
+  // Show loading spinner while checking auth
+  if (authLoading) return (
+    <div style={{ fontFamily: "'Courier New', monospace", background: DARK.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <div style={{ width: 48, height: 48, border: `3px solid #1f3d1f`, borderTopColor: "#22c55e", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <style>{pulse}</style>
+    </div>
+  );
+
+  // Show login screen if not authenticated
+  if (!user) return (
+    <div style={{ fontFamily: "'Courier New', monospace", background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: T.text }}>
+      <style>{pulse}</style>
+      <div style={{ textAlign: "center", maxWidth: 420, padding: 40 }}>
+        <div style={{ position: "relative", width: 64, height: 64, margin: "0 auto 24px" }}>
+          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${T.accent}`, animation: "pulse-ring 2s infinite" }} />
+          <div style={{ position: "absolute", inset: 12, borderRadius: "50%", background: T.accent }} />
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 4, color: T.accent, marginBottom: 8 }}>GEOFENCE.HQ</div>
+        <div style={{ fontSize: 13, color: T.muted, marginBottom: 40, letterSpacing: 1 }}>Location-Based Ad Campaign Manager</div>
+        <button onClick={handleSignIn} disabled={signingIn}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, width: "100%", padding: "14px 24px", background: signingIn ? T.card : "#fff", color: "#1a1a1a", border: `1px solid ${T.border}`, borderRadius: 6, cursor: signingIn ? "default" : "pointer", fontSize: 14, fontWeight: 700, letterSpacing: 1, transition: "all 0.2s" }}>
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.77-2.7.77-2.09 0-3.85-1.4-4.49-3.29H1.81v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.49 10.53A4.86 4.86 0 0 1 4.23 9c0-.52.09-1.03.26-1.53V5.4H1.81a8 8 0 0 0 0 7.2l2.68-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.81 5.4L4.49 7.47c.64-1.89 2.4-3.29 4.49-3.29z"/></svg>
+          {signingIn ? "SIGNING IN..." : "SIGN IN WITH GOOGLE"}
+        </button>
+        {error && <div style={{ marginTop: 16, fontSize: 12, color: "#ef4444" }}>{error}</div>}
+        <div style={{ marginTop: 32, fontSize: 11, color: T.muted, lineHeight: 1.8 }}>
+          Your campaigns are private and only visible to you.<br/>Powered by Firebase Authentication.
+        </div>
+        <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+          style={{ marginTop: 24, background: "transparent", border: `1px solid ${T.border}`, color: T.muted, padding: "6px 14px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ fontFamily: "'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text, transition: "background 0.3s, color 0.3s" }}>
       <style>{pulse}</style>
+
+      {/* Docs Panel */}
+      {showDocs && <DocsPanel T={T} onClose={() => setShowDocs(false)} />}
 
       {/* Header */}
       <div style={{ borderBottom: `1px solid ${T.border}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, background: T.headerBg }}>
@@ -183,6 +658,8 @@ export default function App() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {error && <span style={{ fontSize: 11, color: "#ef4444", marginRight: 8 }}>⚠ {error}</span>}
+          <button onClick={() => setShowDocs(true)}
+            style={{ padding: "6px 14px", borderRadius: 4, border: `1px solid ${T.border}`, background: "transparent", color: T.muted, cursor: "pointer", fontSize: 12, letterSpacing: 1 }}>📚 DOCS</button>
           {["dashboard", "wizard"].map(v => (
             <button key={v} onClick={() => { setView(v); setStep(0); setLaunched(false); setError(null); }}
               style={{ padding: "6px 18px", borderRadius: 4, border: "1px solid", borderColor: view === v ? T.accent : T.border, background: view === v ? T.accent + "22" : "transparent", color: view === v ? T.accent : T.muted, cursor: "pointer", fontSize: 12, letterSpacing: 2, textTransform: "uppercase" }}>
@@ -193,6 +670,12 @@ export default function App() {
             style={{ padding: "6px 14px", borderRadius: 4, border: `1px solid ${T.border}`, background: "transparent", color: T.muted, cursor: "pointer", fontSize: 16 }}>
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, borderLeft: `1px solid ${T.border}` }}>
+            {user?.photoURL && <img src={user.photoURL} alt="" style={{ width: 28, height: 28, borderRadius: "50%", border: `1px solid ${T.accent}` }} />}
+            <span style={{ fontSize: 11, color: T.muted, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.displayName?.split(" ")[0]}</span>
+            <button onClick={() => signOutUser()}
+              style={{ padding: "4px 10px", borderRadius: 4, border: `1px solid ${T.border}`, background: "transparent", color: T.muted, cursor: "pointer", fontSize: 11, letterSpacing: 1 }}>OUT</button>
+          </div>
         </div>
       </div>
 
@@ -553,6 +1036,26 @@ function StepBudget({ campaign, update, totalBudget, estImpressions, estClicks, 
   return (
     <div>
       <SectionTitle step={6} title="Set your budget" sub="Start small and scale what works. You can adjust anytime after launch." T={T} />
+      {campaign.goal && campaign.platform && BUDGET_RECS[campaign.goal]?.[campaign.platform] && (
+        <div style={{ background: T.accent+"11", border: `1px solid ${T.accent}44`, borderRadius: 8, padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 20 }}>💡</span>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 2 }}>RECOMMENDED FOR YOUR GOAL</div>
+            <div style={{ fontSize: 12, color: T.text }}>
+              For <strong>{GOALS.find(g=>g.id===campaign.goal)?.label}</strong> on <strong>{PLATFORMS.find(p=>p.id===campaign.platform)?.name}</strong>: 
+              <span style={{ color: T.accent, fontWeight: 700 }}> ${BUDGET_RECS[campaign.goal][campaign.platform][0]}–${BUDGET_RECS[campaign.goal][campaign.platform][1]}/day</span> is typical for effective local campaigns.
+              <button onClick={() => update("dailyBudget", BUDGET_RECS[campaign.goal][campaign.platform][0])}
+                style={{ marginLeft: 10, padding: "2px 10px", background: T.accent, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                USE MIN
+              </button>
+              <button onClick={() => update("dailyBudget", BUDGET_RECS[campaign.goal][campaign.platform][1])}
+                style={{ marginLeft: 6, padding: "2px 10px", background: "transparent", color: T.accent, border: `1px solid ${T.accent}`, borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                USE MAX
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 24 }}>
           <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>DAILY BUDGET</label>
@@ -621,6 +1124,14 @@ function StepReview({ campaign, totalBudget, estImpressions, estClicks, T }) {
         ✓ You can pause or delete anytime from the dashboard<br />
         ✓ Update impression/click data manually as your campaign runs
       </div>
+
+      {/* One-click copy formatted for platform */}
+      <CopyBrief campaign={campaign} totalBudget={totalBudget} T={T} />
+
+      {/* Launch checklist */}
+      {campaign.platform && PLATFORM_CHECKLIST[campaign.platform] && (
+        <LaunchChecklist platform={PLATFORMS.find(p=>p.id===campaign.platform)} steps={PLATFORM_CHECKLIST[campaign.platform]} T={T} />
+      )}
     </div>
   );
 }
