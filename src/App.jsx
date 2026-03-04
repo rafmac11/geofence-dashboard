@@ -379,7 +379,7 @@ function StepGeofence({ campaign, update, T }) {
       <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24, marginBottom: 16 }}>
         <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>RADIUS: {campaign.radius} MILE{campaign.radius !== 1 ? "S" : ""}</label>
         <input type="range" min={0.1} max={10} step={0.1} value={campaign.radius} onChange={e => update("radius", parseFloat(e.target.value))} style={{ width: "100%", accentColor: "#22c55e" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#2d4d2d", marginTop: 4 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, marginTop: 4 }}>
           <span>0.1 mi</span><span>5 mi</span><span>10 mi</span>
         </div>
       </div>
@@ -400,28 +400,28 @@ function StepAudience({ campaign, update, toggleInterest, T }) {
   return (
     <div>
       <SectionTitle step={4} title="Define your audience" sub="Layer demographics on top of your geofence for precision targeting." T={T} />
-      <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 16 }}>AGE RANGE: {campaign.ageMin} – {campaign.ageMax}</div>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 24, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 16 }}>AGE RANGE: {campaign.ageMin} – {campaign.ageMax}</div>
         <div style={{ display: "flex", gap: 16 }}>
-          <input type="range" min={13} max={65} value={campaign.ageMin} onChange={e => update("ageMin", +e.target.value)} style={{ flex: 1, accentColor: "#22c55e" }} />
-          <input type="range" min={13} max={65} value={campaign.ageMax} onChange={e => update("ageMax", +e.target.value)} style={{ flex: 1, accentColor: "#22c55e" }} />
+          <input type="range" min={13} max={65} value={campaign.ageMin} onChange={e => update("ageMin", +e.target.value)} style={{ flex: 1, accentColor: T.accent }} />
+          <input type="range" min={13} max={65} value={campaign.ageMax} onChange={e => update("ageMax", +e.target.value)} style={{ flex: 1, accentColor: T.accent }} />
         </div>
       </div>
-      <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 12 }}>GENDER</div>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 24, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 12 }}>GENDER</div>
         <div style={{ display: "flex", gap: 10 }}>
           {["all", "male", "female", "nonbinary"].map(g => (
             <div key={g} onClick={() => update("gender", g)}
-              style={{ padding: "8px 16px", border: "1px solid", borderColor: campaign.gender === g ? "#22c55e" : "#1f3d1f", borderRadius: 4, cursor: "pointer", fontSize: 12, background: campaign.gender === g ? "#22c55e11" : "transparent", textTransform: "capitalize" }}>{g}</div>
+              style={{ padding: "8px 16px", border: "1px solid", borderColor: campaign.gender === g ? T.accent : T.border, borderRadius: 4, cursor: "pointer", fontSize: 12, color: campaign.gender === g ? T.accent : T.text, background: campaign.gender === g ? T.accent+"11" : "transparent", textTransform: "capitalize" }}>{g}</div>
           ))}
         </div>
       </div>
-      <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 12 }}>INTERESTS (select at least one)</div>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 24 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 12 }}>INTERESTS (select at least one)</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {INTERESTS.map(i => (
             <div key={i} onClick={() => toggleInterest(i)}
-              style={{ padding: "8px 16px", border: "1px solid", borderColor: campaign.interests.includes(i) ? "#22c55e" : "#1f3d1f", borderRadius: 20, cursor: "pointer", fontSize: 12, background: campaign.interests.includes(i) ? "#22c55e22" : "transparent", color: campaign.interests.includes(i) ? "#22c55e" : "#e8f5e8", transition: "all 0.15s" }}>{i}</div>
+              style={{ padding: "8px 16px", border: "1px solid", borderColor: campaign.interests.includes(i) ? T.accent : T.border, borderRadius: 20, cursor: "pointer", fontSize: 12, background: campaign.interests.includes(i) ? T.accent+"22" : "transparent", color: campaign.interests.includes(i) ? T.accent : T.text, transition: "all 0.15s" }}>{i}</div>
           ))}
         </div>
       </div>
@@ -472,9 +472,9 @@ function StepCreative({ campaign, update, T }) {
 
   return (
     <div>
-      <SectionTitle step={5} title="Create your ad" sub="Write compelling copy or let AI generate it for you." />
+      <SectionTitle step={5} title="Create your ad" sub="Write compelling copy or let AI generate it for you." T={T} />
 
-      <div style={{ background: "#060c06", border: "1px solid #22c55e55", borderRadius: 8, padding: 20, marginBottom: 20 }}>
+      <div style={{ background: T.headerBg, border: "1px solid #22c55e55", borderRadius: 8, padding: 20, marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 20 }}>✨</span>
@@ -493,7 +493,7 @@ function StepCreative({ campaign, update, T }) {
             <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}
               placeholder="e.g. We offer roof inspections and gutter cleaning. Running a spring special — 20% off for homeowners who book this month."
               rows={3}
-              style={{ width: "100%", background: "#0d1a0d", border: "1px solid #22c55e33", borderRadius: 4, padding: "10px 12px", color: "#e8f5e8", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box", marginBottom: 10 }} />
+              style={{ width: "100%", background: T.card, border: "1px solid #22c55e33", borderRadius: 4, padding: "10px 12px", color: T.text, fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box", marginBottom: 10 }} />
             {aiError && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{aiError}</div>}
             <button onClick={generateWithAI} disabled={aiLoading || !aiPrompt.trim()}
               style={{ width: "100%", padding: 11, background: aiLoading || !aiPrompt.trim() ? "#1f3d1f" : "#22c55e", color: aiLoading || !aiPrompt.trim() ? "#2d4d2d" : "#000", border: "none", borderRadius: 4, cursor: aiLoading ? "default" : "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
@@ -505,28 +505,28 @@ function StepCreative({ campaign, update, T }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <div>
-          <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 20, marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>CAMPAIGN NAME</label>
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20, marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>CAMPAIGN NAME</label>
             <input value={campaign.name} onChange={e => update("name", e.target.value)} placeholder="e.g. Summer Promo — Downtown"
-              style={{ width: "100%", background: "#060c06", border: "1px solid #1f3d1f", borderRadius: 4, padding: "10px 12px", color: "#e8f5e8", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              style={{ width: "100%", background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 12px", color: T.text, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
           </div>
-          <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 20, marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>HEADLINE</label>
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20, marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>HEADLINE</label>
             <input value={campaign.headline} onChange={e => update("headline", e.target.value)} placeholder="e.g. You're Just Steps Away!" maxLength={60}
-              style={{ width: "100%", background: "#060c06", border: "1px solid #1f3d1f", borderRadius: 4, padding: "10px 12px", color: "#e8f5e8", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-            <div style={{ fontSize: 10, color: "#2d4d2d", marginTop: 4, textAlign: "right" }}>{campaign.headline.length}/60</div>
+              style={{ width: "100%", background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 12px", color: T.text, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            <div style={{ fontSize: 10, color: T.muted, marginTop: 4, textAlign: "right" }}>{campaign.headline.length}/60</div>
           </div>
-          <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 20, marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>BODY TEXT</label>
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20, marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>BODY TEXT</label>
             <textarea value={campaign.body} onChange={e => update("body", e.target.value)} placeholder="e.g. Get 20% off today when you show this ad in-store." maxLength={150} rows={3}
-              style={{ width: "100%", background: "#060c06", border: "1px solid #1f3d1f", borderRadius: 4, padding: "10px 12px", color: "#e8f5e8", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box" }} />
+              style={{ width: "100%", background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 12px", color: T.text, fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box" }} />
           </div>
-          <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 20 }}>
-            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>CALL TO ACTION</label>
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20 }}>
+            <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>CALL TO ACTION</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {["Visit Us Today", "Get Directions", "Shop Now", "Claim Offer", "Learn More", "Book Now"].map(cta => (
                 <div key={cta} onClick={() => update("cta", cta)}
-                  style={{ padding: "7px 14px", border: "1px solid", borderColor: campaign.cta === cta ? "#22c55e" : "#1f3d1f", borderRadius: 4, cursor: "pointer", fontSize: 11, background: campaign.cta === cta ? "#22c55e22" : "transparent", color: campaign.cta === cta ? "#22c55e" : "#e8f5e8" }}>{cta}</div>
+                  style={{ padding: "7px 14px", border: "1px solid", borderColor: campaign.cta === cta ? T.accent : T.border, borderRadius: 4, cursor: "pointer", fontSize: 11, background: campaign.cta === cta ? T.accent+"22" : "transparent", color: campaign.cta === cta ? T.accent : T.text }}>{cta}</div>
               ))}
             </div>
           </div>
@@ -554,8 +554,8 @@ function StepBudget({ campaign, update, totalBudget, estImpressions, estClicks, 
     <div>
       <SectionTitle step={6} title="Set your budget" sub="Start small and scale what works. You can adjust anytime after launch." T={T} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-        <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24 }}>
-          <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>DAILY BUDGET</label>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 24 }}>
+          <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>DAILY BUDGET</label>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 24, color: "#4d7a4d" }}>$</span>
             <input type="number" value={campaign.dailyBudget} onChange={e => update("dailyBudget", Math.max(10, +e.target.value))} min={10}
@@ -564,8 +564,8 @@ function StepBudget({ campaign, update, totalBudget, estImpressions, estClicks, 
           </div>
           <input type="range" min={10} max={500} value={campaign.dailyBudget} onChange={e => update("dailyBudget", +e.target.value)} style={{ width: "100%", accentColor: "#22c55e", marginTop: 10 }} />
         </div>
-        <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, padding: 24 }}>
-          <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 8 }}>DURATION</label>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 24 }}>
+          <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>DURATION</label>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input type="number" value={campaign.duration} onChange={e => update("duration", Math.max(1, +e.target.value))} min={1}
               style={{ background: "transparent", border: "none", color: "#22c55e", fontSize: 32, fontWeight: 700, width: 70, outline: "none" }} />
@@ -574,13 +574,13 @@ function StepBudget({ campaign, update, totalBudget, estImpressions, estClicks, 
           <input type="range" min={1} max={90} value={campaign.duration} onChange={e => update("duration", +e.target.value)} style={{ width: "100%", accentColor: "#22c55e", marginTop: 10 }} />
         </div>
       </div>
-      <div style={{ background: "#0d1a0d", border: "1px solid #22c55e22", borderRadius: 8, padding: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: "#4d7a4d", marginBottom: 16 }}>PROJECTED RESULTS</div>
+      <div style={{ background: T.card, border: `1px solid ${T.accent}22`, borderRadius: 8, padding: 24 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 16 }}>PROJECTED RESULTS</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
           {[["TOTAL SPEND", `$${totalBudget.toLocaleString()}`], ["EST. IMPRESSIONS", estImpressions.toLocaleString()], ["EST. CLICKS", estClicks.toLocaleString()]].map(([l, v]) => (
             <div key={l} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 26, fontWeight: 700, color: "#22c55e" }}>{v}</div>
-              <div style={{ fontSize: 10, color: "#4d7a4d", letterSpacing: 2, marginTop: 4 }}>{l}</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: T.accent }}>{v}</div>
+              <div style={{ fontSize: 10, color: T.muted, letterSpacing: 2, marginTop: 4 }}>{l}</div>
             </div>
           ))}
         </div>
@@ -608,15 +608,15 @@ function StepReview({ campaign, totalBudget, estImpressions, estClicks, T }) {
   return (
     <div>
       <SectionTitle step={7} title="Review & Launch" sub="Everything look good? Hit launch to save your campaign to Firebase." T={T} />
-      <div style={{ background: "#0d1a0d", border: "1px solid #1f3d1f", borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
         {rows.map(([label, val], i) => (
-          <div key={label} style={{ display: "flex", padding: "14px 22px", borderBottom: i < rows.length - 1 ? "1px solid #111d11" : "none" }}>
-            <div style={{ width: 160, fontSize: 11, color: "#4d7a4d", letterSpacing: 1.5, flexShrink: 0 }}>{label.toUpperCase()}</div>
-            <div style={{ fontSize: 13 }}>{val || <span style={{ color: "#2d4d2d" }}>—</span>}</div>
+          <div key={label} style={{ display: "flex", padding: "14px 22px", borderBottom: i < rows.length - 1 ? `1px solid ${T.border}` : "none" }}>
+            <div style={{ width: 160, fontSize: 11, color: T.muted, letterSpacing: 1.5, flexShrink: 0 }}>{label.toUpperCase()}</div>
+            <div style={{ fontSize: 13 }}>{val || <span style={{ color: T.muted }}>—</span>}</div>
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 16, padding: "14px 20px", background: "#22c55e11", border: "1px solid #22c55e33", borderRadius: 6, fontSize: 12, color: "#4d7a4d", lineHeight: 1.8 }}>
+      <div style={{ marginTop: 16, padding: "14px 20px", background: T.accent+"11", border: `1px solid ${T.accent}33`, borderRadius: 6, fontSize: 12, color: T.muted, lineHeight: 1.8 }}>
         ✓ Campaign will be saved to Firebase instantly<br />
         ✓ You can pause or delete anytime from the dashboard<br />
         ✓ Update impression/click data manually as your campaign runs
