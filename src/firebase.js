@@ -25,11 +25,10 @@ export async function signOutUser() {
   await signOut(auth)
 }
 
+// ─── Campaign CRUD ────────────────────────────────────────────────────────────
 export async function saveCampaign(campaign, userId) {
   const docRef = await addDoc(collection(db, 'campaigns'), {
-    ...campaign,
-    userId,
-    createdAt: serverTimestamp(),
+    ...campaign, userId, createdAt: serverTimestamp(),
   })
   return docRef.id
 }
@@ -46,4 +45,26 @@ export async function updateCampaign(id, data) {
 
 export async function deleteCampaign(id) {
   await deleteDoc(doc(db, 'campaigns', id))
+}
+
+// ─── Client CRUD ──────────────────────────────────────────────────────────────
+export async function saveClient(client, userId) {
+  const docRef = await addDoc(collection(db, 'clients'), {
+    ...client, userId, createdAt: serverTimestamp(),
+  })
+  return docRef.id
+}
+
+export async function loadClients(userId) {
+  const q = query(collection(db, 'clients'), where('userId', '==', userId))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function updateClient(id, data) {
+  await updateDoc(doc(db, 'clients', id), data)
+}
+
+export async function deleteClient(id) {
+  await deleteDoc(doc(db, 'clients', id))
 }

@@ -21,7 +21,7 @@ const LIGHT = {
 };
 
 import { useState, useEffect } from "react";
-import { saveCampaign, loadCampaigns, updateCampaign, deleteCampaign, signInWithGoogle, signOutUser, auth } from "./firebase.js";
+import { saveCampaign, loadCampaigns, updateCampaign, deleteCampaign, signInWithGoogle, signOutUser, auth, saveClient, loadClients, updateClient, deleteClient } from "./firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 
 const STEPS = ["Goal", "Platform", "Geofence", "Audience", "Creative", "Budget", "Launch"];
@@ -149,6 +149,167 @@ const pulse = `
 `;
 
 
+
+
+// ─── Clients View ─────────────────────────────────────────────────────────────
+
+const INDUSTRIES = ["Retail", "Restaurant & Food", "Healthcare", "Automotive", "Real Estate", "Legal", "Home Services", "Fitness & Wellness", "Beauty & Salon", "Education", "Finance", "Technology", "Entertainment", "Non-Profit", "Other"];
+
+const BLANK_CLIENT = {
+  businessName: "", contactName: "", email: "", phone: "", website: "",
+  industry: "", monthlyBudget: "", contractStart: "", contractEnd: "",
+  contractValue: "", billingCycle: "monthly", notes: "", status: "active",
+};
+
+function ClientsView({ clients, campaigns, T, onAdd, onEdit, onDelete }) {
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 32px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
+        <div>
+          <div style={{ fontSize: 11, color: T.muted, letterSpacing: 3, marginBottom: 4 }}>MANAGE — ALL CLIENTS</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: T.text }}>Client Directory</div>
+        </div>
+        <button onClick={onAdd} style={{ padding: "10px 24px", background: T.accent, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 700, letterSpacing: 2, fontSize: 12 }}>+ ADD CLIENT</button>
+      </div>
+      {clients.length === 0 ? (
+        <div style={{ background: T.card, border: "1px solid " + T.border, borderRadius: 6, padding: 60, textAlign: "center", color: T.muted }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🏢</div>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>No clients yet</div>
+          <div style={{ fontSize: 12 }}>Add your first client to get started</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+          {clients.map(c => {
+            const cc = campaigns.filter(camp => camp.clientId === c.id);
+            const active = cc.filter(camp => camp.status === "active").length;
+            return (
+              <div key={c.id} style={{ background: T.card, border: "1px solid " + T.border, borderRadius: 8, padding: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 2 }}>{c.businessName}</div>
+                    <div style={{ fontSize: 11, color: T.muted }}>{c.industry}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => onEdit(c)} style={{ padding: "4px 10px", border: "1px solid " + T.border, borderRadius: 4, background: "transparent", color: T.muted, cursor: "pointer", fontSize: 11 }}>EDIT</button>
+                    <button onClick={() => onDelete(c.id)} style={{ padding: "4px 10px", border: "1px solid #ef444433", borderRadius: 4, background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11 }}>DEL</button>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                  {[["Contact", c.contactName],["Email", c.email],["Phone", c.phone],["Budget", c.monthlyBudget ? "$" + Number(c.monthlyBudget).toLocaleString() + "/mo" : "—"],["Contract", c.contractValue ? "$" + Number(c.contractValue).toLocaleString() : "—"],["Billing", c.billingCycle]].map(([label, val]) => (
+                    <div key={label}>
+                      <div style={{ fontSize: 9, color: T.muted, letterSpacing: 1.5, marginBottom: 2 }}>{label.toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{val || "—"}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ borderTop: "1px solid " + T.border, paddingTop: 12, display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 11, color: T.muted }}><span style={{ color: T.accent, fontWeight: 700 }}>{active}</span> active · {cc.length} total campaigns</div>
+                  {c.contractEnd && <div style={{ fontSize: 10, color: T.muted }}>Ends: {c.contractEnd}</div>}
+                </div>
+                {c.notes && <div style={{ marginTop: 10, padding: "8px 12px", background: T.bg, borderRadius: 4, fontSize: 11, color: T.muted, lineHeight: 1.5 }}>{c.notes}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClientModal({ T, client, onClose, onSave }) {
+  const [form, setForm] = useState(client ? { businessName: "", contactName: "", email: "", phone: "", website: "", industry: "", monthlyBudget: "", contractStart: "", contractEnd: "", contractValue: "", billingCycle: "monthly", notes: "", status: "active", ...client } : { businessName: "", contactName: "", email: "", phone: "", website: "", industry: "", monthlyBudget: "", contractStart: "", contractEnd: "", contractValue: "", billingCycle: "monthly", notes: "", status: "active" });
+  const [saving, setSaving] = useState(false);
+  const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  const handleSave = async () => { if (!form.businessName.trim()) return; setSaving(true); try { await onSave(form); } finally { setSaving(false); } };
+  const inp = { background: T.input, border: "1px solid " + T.border, borderRadius: 4, padding: "9px 12px", color: T.text, fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)" }} onClick={onClose}>
+      <div style={{ width: 620, maxHeight: "90vh", background: T.bg, border: "1px solid " + T.border, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: "20px 28px", borderBottom: "1px solid " + T.border, display: "flex", justifyContent: "space-between", alignItems: "center", background: T.headerBg, flexShrink: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.accent, letterSpacing: 2 }}>{client ? "EDIT CLIENT" : "ADD NEW CLIENT"}</div>
+          <button onClick={onClose} style={{ background: "transparent", border: "1px solid " + T.border, color: T.muted, width: 32, height: 32, borderRadius: 4, cursor: "pointer", fontSize: 18 }}>x</button>
+        </div>
+        <div style={{ overflowY: "auto", padding: "24px 28px", flex: 1 }}>
+          <div style={{ fontSize: 11, color: T.accent, letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>BUSINESS INFO</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 16px", marginBottom: 20 }}>
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>BUSINESS NAME *</label>
+              <input value={form.businessName} onChange={e => set("businessName", e.target.value)} placeholder="e.g. Acme Roofing Co." style={inp} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>INDUSTRY</label>
+              <select value={form.industry} onChange={e => set("industry", e.target.value)} style={{ ...inp }}>
+                <option value="">Select...</option>
+                {["Retail","Restaurant & Food","Healthcare","Automotive","Real Estate","Legal","Home Services","Fitness & Wellness","Beauty & Salon","Education","Finance","Technology","Entertainment","Non-Profit","Other"].map(i => <option key={i} value={i}>{i}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>WEBSITE</label>
+              <input value={form.website} onChange={e => set("website", e.target.value)} placeholder="https://example.com" style={inp} />
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: T.accent, letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>CONTACT INFO</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 16px", marginBottom: 20 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>CONTACT NAME</label>
+              <input value={form.contactName} onChange={e => set("contactName", e.target.value)} placeholder="John Smith" style={inp} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>EMAIL</label>
+              <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="john@company.com" style={inp} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>PHONE</label>
+              <input value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 000-0000" style={inp} />
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: T.accent, letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>BILLING & CONTRACT</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 16px", marginBottom: 20 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>MONTHLY AD BUDGET ($)</label>
+              <input type="number" value={form.monthlyBudget} onChange={e => set("monthlyBudget", e.target.value)} placeholder="e.g. 2000" style={inp} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>CONTRACT VALUE ($)</label>
+              <input type="number" value={form.contractValue} onChange={e => set("contractValue", e.target.value)} placeholder="e.g. 6000" style={inp} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>CONTRACT START</label>
+              <input type="date" value={form.contractStart} onChange={e => set("contractStart", e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>CONTRACT END</label>
+              <input type="date" value={form.contractEnd} onChange={e => set("contractEnd", e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>BILLING CYCLE</label>
+              <select value={form.billingCycle} onChange={e => set("billingCycle", e.target.value)} style={{ ...inp }}>
+                {["monthly","quarterly","annual","one-time"].map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10, letterSpacing: 2, color: T.muted, marginBottom: 6 }}>STATUS</label>
+              <select value={form.status} onChange={e => set("status", e.target.value)} style={{ ...inp }}>
+                {["active","paused","completed","prospect"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: T.accent, letterSpacing: 2, marginBottom: 12, fontWeight: 700 }}>NOTES</div>
+          <textarea value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Internal notes about this client..." rows={3}
+            style={{ ...inp, resize: "none" }} />
+        </div>
+        <div style={{ padding: "16px 28px", borderTop: "1px solid " + T.border, display: "flex", justifyContent: "flex-end", gap: 10, background: T.headerBg, flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: "10px 24px", background: "transparent", border: "1px solid " + T.border, color: T.muted, borderRadius: 4, cursor: "pointer", fontSize: 12 }}>CANCEL</button>
+          <button onClick={handleSave} disabled={saving || !form.businessName.trim()}
+            style={{ padding: "10px 28px", background: form.businessName.trim() ? T.accent : T.border, color: form.businessName.trim() ? "#000" : T.muted, border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 12, letterSpacing: 1 }}>
+            {saving ? "SAVING..." : client ? "SAVE CHANGES" : "ADD CLIENT"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Copy Brief Component ─────────────────────────────────────────────────────
 
@@ -485,6 +646,10 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showDocs, setShowDocs] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
   const T = theme === "dark" ? DARK : LIGHT;
 
   // Listen for auth state changes
@@ -502,10 +667,10 @@ export default function App() {
     return unsub;
   }, []);
 
-  // Load campaigns when user logs in
+  // Load campaigns and clients when user logs in
   useEffect(() => {
-    if (user) fetchCampaigns();
-    else setCampaigns([]);
+    if (user) { fetchCampaigns(); fetchClients(); }
+    else { setCampaigns([]); setClients([]); }
   }, [user]);
 
   async function fetchCampaigns() {
@@ -522,6 +687,15 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchClients() {
+    if (!user) return;
+    try {
+      const data = await loadClients(user.uid);
+      data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setClients(data);
+    } catch (e) { console.error(e); }
   }
 
   const update = (field, val) => setCampaign(p => ({ ...p, [field]: val }));
@@ -553,6 +727,8 @@ export default function App() {
       const newCamp = {
         ...campaign,
         name: campaign.name || `${campaign.location} Campaign`,
+        clientId: selectedClient?.id || null,
+        clientName: selectedClient?.businessName || null,
         platformName: platform?.name || "—",
         budget: totalBudget,
         estImpressions,
@@ -660,10 +836,10 @@ export default function App() {
           {error && <span style={{ fontSize: 11, color: "#ef4444", marginRight: 8 }}>⚠ {error}</span>}
           <button onClick={() => setShowDocs(true)}
             style={{ padding: "6px 14px", borderRadius: 4, border: `1px solid ${T.border}`, background: "transparent", color: T.muted, cursor: "pointer", fontSize: 12, letterSpacing: 1 }}>📚 DOCS</button>
-          {["dashboard", "wizard"].map(v => (
+          {[["dashboard","DASHBOARD"],["clients","CLIENTS"],["wizard","+ NEW CAMPAIGN"]].map(([v,label]) => (
             <button key={v} onClick={() => { setView(v); setStep(0); setLaunched(false); setError(null); }}
-              style={{ padding: "6px 18px", borderRadius: 4, border: "1px solid", borderColor: view === v ? T.accent : T.border, background: view === v ? T.accent + "22" : "transparent", color: view === v ? T.accent : T.muted, cursor: "pointer", fontSize: 12, letterSpacing: 2, textTransform: "uppercase" }}>
-              {v === "wizard" ? "+ New Campaign" : v}
+              style={{ padding: "6px 18px", borderRadius: 4, border: "1px solid", borderColor: view === v ? T.accent : T.border, background: view === v ? T.accent + "22" : "transparent", color: view === v ? T.accent : T.muted, cursor: "pointer", fontSize: 12, letterSpacing: 2 }}>
+              {label}
             </button>
           ))}
           <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
@@ -679,17 +855,27 @@ export default function App() {
         </div>
       </div>
 
-      {view === "dashboard"
-        ? <DashboardView campaigns={campaigns} loading={loading} onNew={() => setView("wizard")} onToggleStatus={handleToggleStatus} onDelete={handleDelete} T={T} />
-        : launched
-          ? <LaunchScreen name={campaign.name || `${campaign.location} Campaign`} T={T} />
-          : <WizardView step={step} setStep={setStep} campaign={campaign} update={update} toggleInterest={toggleInterest} canNext={canNext} totalBudget={totalBudget} estImpressions={estImpressions} estClicks={estClicks} onLaunch={handleLaunch} saving={saving} T={T} />
-      }
+      {view === "dashboard" && <DashboardView campaigns={campaigns} loading={loading} onNew={() => setView("wizard")} onToggleStatus={handleToggleStatus} onDelete={handleDelete} T={T} clients={clients} selectedClient={selectedClient} setSelectedClient={setSelectedClient} />}
+      {view === "clients" && <ClientsView clients={clients} campaigns={campaigns} T={T} onAdd={() => { setEditingClient(null); setShowClientModal(true); }} onEdit={(c) => { setEditingClient(c); setShowClientModal(true); }} onDelete={async (id) => { if (!confirm("Delete this client?")) return; await deleteClient(id); setClients(p => p.filter(c => c.id !== id)); }} />}
+      {view === "wizard" && (launched
+        ? <LaunchScreen name={campaign.name || `${campaign.location} Campaign`} T={T} />
+        : <WizardView step={step} setStep={setStep} campaign={campaign} update={update} toggleInterest={toggleInterest} canNext={canNext} totalBudget={totalBudget} estImpressions={estImpressions} estClicks={estClicks} onLaunch={handleLaunch} saving={saving} T={T} clients={clients} selectedClient={selectedClient} setSelectedClient={setSelectedClient} />
+      )}
+      {showClientModal && <ClientModal T={T} client={editingClient} onClose={() => setShowClientModal(false)} onSave={async (data) => {
+        if (editingClient) {
+          await updateClient(editingClient.id, data);
+          setClients(p => p.map(c => c.id === editingClient.id ? { ...c, ...data } : c));
+        } else {
+          const id = await saveClient(data, user.uid);
+          setClients(p => [{ id, ...data }, ...p]);
+        }
+        setShowClientModal(false);
+      }} />}
     </div>
   );
 }
 
-function DashboardView({ campaigns, loading, onNew, onToggleStatus, onDelete, T }) {
+function DashboardView({ campaigns, loading, onNew, onToggleStatus, onDelete, T, clients, selectedClient, setSelectedClient }) {
   const totalSpent = campaigns.reduce((a, c) => a + (c.spent || 0), 0);
   const totalImpressions = campaigns.reduce((a, c) => a + (c.impressions || 0), 0);
   const totalClicks = campaigns.reduce((a, c) => a + (c.clicks || 0), 0);
@@ -762,7 +948,7 @@ function DashboardView({ campaigns, loading, onNew, onToggleStatus, onDelete, T 
   );
 }
 
-function WizardView({ step, setStep, campaign, update, toggleInterest, canNext, totalBudget, estImpressions, estClicks, onLaunch, saving, T }) {
+function WizardView({ step, setStep, campaign, update, toggleInterest, canNext, totalBudget, estImpressions, estClicks, onLaunch, saving, T, clients, selectedClient, setSelectedClient }) {
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "40px 24px" }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 40 }}>
