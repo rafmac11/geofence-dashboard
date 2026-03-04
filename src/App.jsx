@@ -202,9 +202,19 @@ function ClientsView({ clients, campaigns, T, onAdd, onEdit, onDelete }) {
                     </div>
                   ))}
                 </div>
-                <div style={{ borderTop: "1px solid " + T.border, paddingTop: 12, display: "flex", justifyContent: "space-between" }}>
+                <div style={{ borderTop: "1px solid " + T.border, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: 11, color: T.muted }}><span style={{ color: T.accent, fontWeight: 700 }}>{active}</span> active · {cc.length} total campaigns</div>
                   {c.contractEnd && <div style={{ fontSize: 10, color: T.muted }}>Ends: {c.contractEnd}</div>}
+                </div>
+                <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                  <a href={`/api/google-auth?clientId=${c.id}`}
+                    style={{ flex: 1, padding: "7px 0", background: c.googleConnected ? "#22c55e22" : "transparent", border: "1px solid " + (c.googleConnected ? "#22c55e" : T.border), borderRadius: 4, color: c.googleConnected ? "#22c55e" : T.muted, fontSize: 11, fontWeight: 700, textAlign: "center", textDecoration: "none", letterSpacing: 1 }}>
+                    {c.googleConnected ? "✓ GOOGLE" : "＋ GOOGLE"}
+                  </a>
+                  <a href={`/api/meta-auth?clientId=${c.id}`}
+                    style={{ flex: 1, padding: "7px 0", background: c.metaConnected ? "#22c55e22" : "transparent", border: "1px solid " + (c.metaConnected ? "#22c55e" : T.border), borderRadius: 4, color: c.metaConnected ? "#22c55e" : T.muted, fontSize: 11, fontWeight: 700, textAlign: "center", textDecoration: "none", letterSpacing: 1 }}>
+                    {c.metaConnected ? "✓ META" : "＋ META"}
+                  </a>
                 </div>
                 {c.notes && <div style={{ marginTop: 10, padding: "8px 12px", background: T.bg, borderRadius: 4, fontSize: 11, color: T.muted, lineHeight: 1.5 }}>{c.notes}</div>}
               </div>
@@ -651,6 +661,25 @@ export default function App() {
   const [showClientModal, setShowClientModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const T = theme === "dark" ? DARK : LIGHT;
+
+  // Handle OAuth callback params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google_connected")) {
+      setError(null);
+      alert("✅ Google Ads connected successfully!");
+      window.history.replaceState({}, "", "/");
+    }
+    if (params.get("meta_connected")) {
+      setError(null);
+      alert("✅ Meta Ads connected successfully!");
+      window.history.replaceState({}, "", "/");
+    }
+    if (params.get("error")) {
+      setError("Connection failed: " + params.get("error").replace(/_/g, " "));
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
 
   // Listen for auth state changes
   useEffect(() => {
