@@ -430,7 +430,7 @@ const BLANK_CLIENT = {
   contractValue: "", billingCycle: "monthly", notes: "", status: "active",
 };
 
-function ClientsView({ clients, campaigns, T, onAdd, onEdit, onDelete }) {
+function ClientsView({ clients, campaigns, T, onAdd, onEdit, onDelete, onRequestAccess }) {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 32px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
@@ -475,7 +475,13 @@ function ClientsView({ clients, campaigns, T, onAdd, onEdit, onDelete }) {
                   <div style={{ fontSize: 11, color: T.muted }}><span style={{ color: T.accent, fontWeight: 700 }}>{active}</span> active · {cc.length} total campaigns</div>
                   {c.contractEnd && <div style={{ fontSize: 10, color: T.muted }}>Ends: {c.contractEnd}</div>}
                 </div>
-                <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                <div style={{ marginTop: 12, marginBottom: 8 }}>
+                  <button onClick={() => onRequestAccess(c)}
+                    style={{ width: "100%", padding: "9px", background: "transparent", border: `1px solid ${T.accent}44`, borderRadius: 4, color: T.accent, cursor: "pointer", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>
+                    🔑 REQUEST AD ACCESS
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
                   <a href={`/api/google-auth?clientId=${c.id}`}
                     style={{ flex: 1, padding: "7px 0", background: c.googleConnected ? "#22c55e22" : "transparent", border: "1px solid " + (c.googleConnected ? "#22c55e" : T.border), borderRadius: 4, color: c.googleConnected ? "#22c55e" : T.muted, fontSize: 11, fontWeight: 700, textAlign: "center", textDecoration: "none", letterSpacing: 1 }}>
                     {c.googleConnected ? "✓ GOOGLE" : "＋ GOOGLE"}
@@ -491,6 +497,203 @@ function ClientsView({ clients, campaigns, T, onAdd, onEdit, onDelete }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ─── Access Request Modal ───────────────────────────────────────────────────
+
+const GOOGLE_MCC_ID = "YOUR-MCC-ID"; // Replace with your Google MCC ID
+const META_BUSINESS_ID = "YOUR-META-BUSINESS-ID"; // Replace with your Meta Business ID
+
+function AccessRequestModal({ T, client, onClose }) {
+  const [copied, setCopied] = useState("");
+  const [activeTab, setActiveTab] = useState("email");
+
+  const googleInstructions = `Hi ${client.contactName || client.businessName},
+
+To get started with your Google Ads campaigns, I need Standard access to your Google Ads account. Here's how to grant it:
+
+1. Sign in to your Google Ads account at ads.google.com
+2. Click the tools icon (⚙️) in the top right → select "Access and security"
+3. Click the blue "+" button
+4. Enter my email: rafael@jrcopier.com
+5. Set the access level to "Standard"
+6. Click "Send invitation"
+
+You'll get a confirmation — that's it! Takes about 60 seconds.
+
+Alternatively, if you'd like to link to my Manager Account directly (more secure — no shared passwords), I can send you a link request to approve with one click.
+
+Let me know if you have any questions!
+
+— Rafael
+JR Copier of MN`;
+
+  const metaInstructions = `Hi ${client.contactName || client.businessName},
+
+To manage your Meta (Facebook/Instagram) ad campaigns, I need Advertiser access to your Meta Business account. Here's how:
+
+OPTION 1 — Add me directly:
+1. Go to business.facebook.com
+2. Click "Settings" (gear icon) → "Ad Accounts"
+3. Select your ad account
+4. Click "Add People"
+5. Enter my email: rafael@jrcopier.com
+6. Set role to "Advertiser"
+7. Click Confirm
+
+OPTION 2 — Partner Access (recommended — more secure):
+1. Go to business.facebook.com → Settings → Partners
+2. Click "Add" → "Give a partner access to your assets"
+3. Enter my Meta Business ID: ${META_BUSINESS_ID}
+4. Select your Ad Account and set role to "Advertiser"
+5. Click Save
+
+Either option takes less than 2 minutes and means you stay in full control — you can remove access any time.
+
+— Rafael
+JR Copier of MN`;
+
+  const combinedEmail = `Hi ${client.contactName || client.businessName},
+
+To launch your geofencing campaigns on Google and Meta, I need access to both ad accounts. Here's a quick guide:
+
+━━ GOOGLE ADS ━━
+1. Go to ads.google.com → Tools (⚙️) → Access and Security
+2. Click "+" → Enter rafael@jrcopier.com → Role: Standard → Send Invitation
+
+━━ META ADS ━━
+1. Go to business.facebook.com → Settings → Ad Accounts
+2. Select your account → Add People → rafael@jrcopier.com → Role: Advertiser
+
+Both steps take about 2 minutes total. Once access is granted, I can launch your campaigns and you'll receive a notification email when they go live.
+
+Questions? Reply to this email or call me directly.
+
+— Rafael
+JR Copier of MN
+(763) xxx-xxxx`;
+
+  const copy = (text, key) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(""), 2500);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: 620, maxHeight: "90vh", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: 1 }}>🔑 REQUEST AD ACCESS</div>
+            <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{client.businessName} · {client.email || "no email on file"}</div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: T.muted, cursor: "pointer", fontSize: 20, lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", borderBottom: `1px solid ${T.border}` }}>
+          {[["email", "📧 Combined Email"], ["google", "G Google Ads"], ["meta", "f Meta Ads"]].map(([id, label]) => (
+            <button key={id} onClick={() => setActiveTab(id)}
+              style={{ flex: 1, padding: "12px 8px", background: activeTab === id ? T.card : "transparent", border: "none", borderBottom: activeTab === id ? `2px solid ${T.accent}` : "2px solid transparent", color: activeTab === id ? T.accent : T.muted, cursor: "pointer", fontSize: 12, fontWeight: activeTab === id ? 700 : 400 }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+
+          {activeTab === "email" && (
+            <div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 12 }}>Send this single email to your client — covers both Google and Meta access in one message.</div>
+              <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: 16, fontSize: 12, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "inherit", marginBottom: 12 }}>
+                {combinedEmail}
+              </div>
+              <button onClick={() => copy(combinedEmail, "email")}
+                style={{ width: "100%", padding: "11px", background: copied === "email" ? "#22c55e" : T.accent+"22", border: `1px solid ${T.accent}`, color: copied === "email" ? "#000" : T.accent, borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
+                {copied === "email" ? "✓ COPIED!" : "📋 COPY EMAIL"}
+              </button>
+            </div>
+          )}
+
+          {activeTab === "google" && (
+            <div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 16 }}>Two ways to get Google Ads access — Option 2 (MCC link) is the professional agency approach.</div>
+              
+              <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: 16, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 10, letterSpacing: 1 }}>OPTION 1 — Direct User Access</div>
+                {["Client signs in to ads.google.com", "Tools (⚙️) → Access and Security", 'Click "+" → Enter rafael@jrcopier.com', "Role: Standard → Send Invitation", "You get an email to accept — done!"].map((step, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: T.accent+"22", color: T.accent, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i+1}</div>
+                    <div style={{ fontSize: 12, color: T.text, paddingTop: 2 }}>{step}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ background: T.card, border: `1px solid ${T.accent}44`, borderRadius: 6, padding: 16, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 4, letterSpacing: 1 }}>⭐ OPTION 2 — MCC Manager Link (Recommended)</div>
+                <div style={{ fontSize: 11, color: T.muted, marginBottom: 10 }}>Client approves with one click — no passwords shared, professional agency setup.</div>
+                {["You send a link request from your MCC at ads.google.com/home/tools/manager-accounts", "Client receives email from Google → clicks Accept", "Their account appears in your MCC dashboard", "You manage from Geofence HQ without needing their login"].map((step, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: T.accent+"33", color: T.accent, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i+1}</div>
+                    <div style={{ fontSize: 12, color: T.text, paddingTop: 2 }}>{step}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>Copy the email instructions to send to your client:</div>
+              <button onClick={() => copy(googleInstructions, "google")}
+                style={{ width: "100%", padding: "11px", background: copied === "google" ? "#22c55e" : T.accent+"22", border: `1px solid ${T.accent}`, color: copied === "google" ? "#000" : T.accent, borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
+                {copied === "google" ? "✓ COPIED!" : "📋 COPY GOOGLE INSTRUCTIONS"}
+              </button>
+            </div>
+          )}
+
+          {activeTab === "meta" && (
+            <div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 16 }}>Two ways to get Meta Ads access — Partner Access is the professional agency approach.</div>
+
+              <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: 16, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#1877F2", marginBottom: 10, letterSpacing: 1 }}>OPTION 1 — Direct User Access</div>
+                {["Client goes to business.facebook.com", "Settings → Ad Accounts → select their account", 'Click "Add People" → Enter rafael@jrcopier.com', "Role: Advertiser → Confirm"].map((step, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#1877F222", color: "#1877F2", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i+1}</div>
+                    <div style={{ fontSize: 12, color: T.text, paddingTop: 2 }}>{step}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ background: T.card, border: "1px solid #1877F244", borderRadius: 6, padding: 16, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#1877F2", marginBottom: 4, letterSpacing: 1 }}>⭐ OPTION 2 — Partner Access (Recommended)</div>
+                <div style={{ fontSize: 11, color: T.muted, marginBottom: 10 }}>Client adds your Business ID — you never need their password.</div>
+                {['Client goes to business.facebook.com → Settings → Partners', 'Click "Add" → "Give a partner access to your assets"', `Enter your Meta Business ID: ${META_BUSINESS_ID}`, "Select their Ad Account → Role: Advertiser → Save"].map((step, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#1877F233", color: "#1877F2", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i+1}</div>
+                    <div style={{ fontSize: 12, color: T.text, paddingTop: 2 }}>{step}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>Copy the email instructions to send to your client:</div>
+              <button onClick={() => copy(metaInstructions, "meta")}
+                style={{ width: "100%", padding: "11px", background: copied === "meta" ? "#22c55e" : "#1877F222", border: "1px solid #1877F244", color: copied === "meta" ? "#000" : "#1877F2", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
+                {copied === "meta" ? "✓ COPIED!" : "📋 COPY META INSTRUCTIONS"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "14px 24px", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 11, color: T.muted }}>Once access is granted, connect their accounts with + GOOGLE / + META on the client card.</div>
+          <button onClick={onClose} style={{ padding: "8px 20px", background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 4, cursor: "pointer", fontSize: 12 }}>CLOSE</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -926,6 +1129,7 @@ export default function App() {
   const [showDocs, setShowDocs] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [clientNotif, setClientNotif] = useState(null);
+  const [accessClient, setAccessClient] = useState(null);
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -1161,7 +1365,8 @@ export default function App() {
         setLaunched(false);
       }} />}
       {view === "dashboard" && <DashboardView campaigns={campaigns} loading={loading} onNew={() => setView("wizard")} onToggleStatus={handleToggleStatus} onDelete={handleDelete} T={T} clients={clients} selectedClient={selectedClient} setSelectedClient={setSelectedClient} />}
-      {view === "clients" && <ClientsView clients={clients} campaigns={campaigns} T={T} onAdd={() => { setEditingClient(null); setShowClientModal(true); }} onEdit={(c) => { setEditingClient(c); setShowClientModal(true); }} onDelete={async (id) => { if (!confirm("Delete this client?")) return; await deleteClient(id); setClients(p => p.filter(c => c.id !== id)); }} />}
+      {view === "clients" && <ClientsView clients={clients} campaigns={campaigns} T={T} onAdd={() => { setEditingClient(null); setShowClientModal(true); }} onEdit={(c) => { setEditingClient(c); setShowClientModal(true); }} onDelete={async (id) => { if (!confirm("Delete this client?")) return; await deleteClient(id); setClients(p => p.filter(c => c.id !== id)); }} onRequestAccess={(c) => setAccessClient(c)} />}
+      {accessClient && <AccessRequestModal T={T} client={accessClient} onClose={() => setAccessClient(null)} />}
       {view === "wizard" && (launched
         ? <>
           <LaunchScreen name={campaign.name || `${campaign.location} Campaign`} T={T} />
