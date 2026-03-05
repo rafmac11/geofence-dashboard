@@ -1560,10 +1560,21 @@ function StepGeofence({ campaign, update, T }) {
                     {p.rating && <div style={{ fontSize: 10, color: "#f59e0b" }}>{"★".repeat(Math.round(p.rating))} {p.rating} ({p.user_ratings_total} reviews)</div>}
                   </div>
                 </div>
-                <button onClick={() => fenceCompetitor(p)}
-                  style={{ padding: "6px 14px", background: T.accent, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
-                  FENCE THIS
-                </button>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button onClick={() => fenceCompetitor(p)}
+                    style={{ padding: "6px 14px", background: T.accent, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+                    FENCE THIS
+                  </button>
+                  <button onClick={() => {
+                    const updated = competitors.filter((_, idx) => idx !== i);
+                    setCompetitors(updated);
+                    if (compMarkers[i]) { compMarkers[i].setMap(null); }
+                    setCompMarkers(prev => prev.filter((_, idx) => idx !== i));
+                  }}
+                    style={{ width: 28, height: 28, background: "transparent", border: `1px solid ${T.border}`, borderRadius: 4, cursor: "pointer", color: T.muted, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    ✕
+                  </button>
+                </div>
               </div>
             ))}
           </div>
