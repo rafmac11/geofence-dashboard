@@ -1384,7 +1384,7 @@ function StepGeofence({ campaign, update, T }) {
     window.__googleMapsCallback = () => setMapLoaded(true);
     const script = document.createElement("script");
     script.id = "gmap-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GKEY}&libraries=places&loading=async&callback=__googleMapsCallback`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GKEY}&libraries=places,marker&v=beta&loading=async&callback=__googleMapsCallback`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
@@ -1452,22 +1452,35 @@ function StepGeofence({ campaign, update, T }) {
     });
   };
 
-  const searchCompetitors = () => {
+  const searchCompetitors = async () => {
     if (!compSearch.trim() || !coords || !googleMap) return;
     setCompSearching(true);
     compMarkers.forEach(m => m.setMap(null));
     setCompMarkers([]); setCompetitors([]);
-    const service = new window.google.maps.places.PlacesService(googleMap);
-    service.nearbySearch({
-      location: coords, radius: Math.min(campaign.radius * 1609.34 * 2, 50000), keyword: compSearch,
-    }, (results, status) => {
+    try {
+      const { Place } = await window.google.maps.importLibrary("places");
+      const request = {
+        textQuery: compSearch,
+        fields: ["displayName", "location", "formattedAddress", "rating", "userRatingCount", "businessStatus"],
+        locationBias: { lat: coords.lat, lng: coords.lng },
+        maxResultCount: 8,
+      };
+      const { places } = await Place.searchByText(request);
       setCompSearching(false);
-      if (results?.length) {
-        const top = results.slice(0, 8);
-        setCompetitors(top);
-        const newMarkers = top.map((place, i) => {
+      if (places?.length) {
+        const top = places.slice(0, 8);
+        // Convert to compatible format
+        const formatted = top.map(p => ({
+          name: p.displayName,
+          vicinity: p.formattedAddress,
+          rating: p.rating,
+          user_ratings_total: p.userRatingCount,
+          location: p.location,
+        }));
+        setCompetitors(formatted);
+        const newMarkers = formatted.map((place, i) => {
           const m = new window.google.maps.Marker({
-            position: place.geometry.location, map: googleMap,
+            position: place.location, map: googleMap,
             icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#ef4444", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
             label: { text: String(i + 1), color: "#fff", fontSize: "10px", fontWeight: "bold" },
             title: place.name,
@@ -1479,15 +1492,18 @@ function StepGeofence({ campaign, update, T }) {
         setCompMarkers(newMarkers);
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend(coords);
-        top.forEach(p => bounds.extend(p.geometry.location));
+        formatted.forEach(p => bounds.extend(p.location));
         googleMap.fitBounds(bounds);
       }
-    });
+    } catch(e) {
+      console.error("Places search error:", e);
+      setCompSearching(false);
+    }
   };
 
   const fenceCompetitor = (place) => {
-    const lat = place.geometry.location.lat();
-    const lng = place.geometry.location.lng();
+    const lat = typeof place.location.lat === "function" ? place.location.lat() : place.location.lat;
+    const lng = typeof place.location.lng === "function" ? place.location.lng() : place.location.lng;
     googleMap.setCenter({ lat, lng }); googleMap.setZoom(16);
     placeMainPin(googleMap, lat, lng);
     update("location", place.vicinity || place.name);
