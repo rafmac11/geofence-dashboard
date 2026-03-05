@@ -1384,7 +1384,7 @@ function StepGeofence({ campaign, update, T }) {
     window.__googleMapsCallback = () => setMapLoaded(true);
     const script = document.createElement("script");
     script.id = "gmap-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GKEY}&libraries=places,geocoder&loading=async&callback=__googleMapsCallback`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GKEY}&libraries=places&loading=async&callback=__googleMapsCallback`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
