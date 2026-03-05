@@ -1363,7 +1363,6 @@ function StepPlatform({ campaign, update, T }) {
 
 function StepGeofence({ campaign, update, T }) {
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapRef2, setMapRef2] = useState(null);
   const [googleMap, setGoogleMap] = useState(null);
   const [mainMarker, setMainMarker] = useState(null);
   const [mainCircle, setMainCircle] = useState(null);
@@ -1376,23 +1375,25 @@ function StepGeofence({ campaign, update, T }) {
   const mapDivRef = useRef(null);
   const GKEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 
-  // Load Google Maps JS API
   useEffect(() => {
     if (window.google?.maps) { setMapLoaded(true); return; }
-    if (document.getElementById("gmap-script")) return;
+    if (document.getElementById("gmap-script")) {
+      const check = setInterval(() => { if (window.google?.maps) { setMapLoaded(true); clearInterval(check); } }, 100);
+      return;
+    }
+    window.__googleMapsCallback = () => setMapLoaded(true);
     const script = document.createElement("script");
     script.id = "gmap-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GKEY}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GKEY}&libraries=places,geocoder&loading=async&callback=__googleMapsCallback`;
     script.async = true;
-    script.onload = () => setMapLoaded(true);
+    script.defer = true;
     document.head.appendChild(script);
   }, []);
 
-  // Init Google Map
   useEffect(() => {
     if (!mapLoaded || !mapDivRef.current || googleMap) return;
     const map = new window.google.maps.Map(mapDivRef.current, {
-      center: { lat: 45.0731, lng: -93.4563 }, // Maple Grove MN
+      center: { lat: 45.0731, lng: -93.4563 },
       zoom: 13,
       mapTypeId: "roadmap",
       styles: [
@@ -1405,29 +1406,19 @@ function StepGeofence({ campaign, update, T }) {
         { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#4d8a4d" }] },
         { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#22c55e" }] },
         { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#0f2a0f" }] },
-        { featureType: "poi.business", elementType: "geometry", stylers: [{ color: "#162e16" }] },
         { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#22c55e" }] },
-        { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#1a3a1a" }] },
       ],
     });
-    map.addListener("click", (e) => {
-      placeMainPin(map, e.latLng.lat(), e.latLng.lng());
-    });
+    map.addListener("click", (e) => placeMainPin(map, e.latLng.lat(), e.latLng.lng()));
     setGoogleMap(map);
   }, [mapLoaded]);
 
-  // Update circle radius
   useEffect(() => {
     if (!googleMap || !coords) return;
     if (mainCircle) mainCircle.setMap(null);
     const c = new window.google.maps.Circle({
-      map: googleMap,
-      center: coords,
-      radius: campaign.radius * 1609.34,
-      fillColor: "#22c55e",
-      fillOpacity: 0.12,
-      strokeColor: "#22c55e",
-      strokeWeight: 2,
+      map: googleMap, center: coords, radius: campaign.radius * 1609.34,
+      fillColor: "#22c55e", fillOpacity: 0.12, strokeColor: "#22c55e", strokeWeight: 2,
     });
     setMainCircle(c);
   }, [campaign.radius, coords, googleMap]);
@@ -1435,34 +1426,26 @@ function StepGeofence({ campaign, update, T }) {
   const placeMainPin = (map, lat, lng) => {
     if (mainMarker) mainMarker.setMap(null);
     const marker = new window.google.maps.Marker({
-      position: { lat, lng },
-      map,
+      position: { lat, lng }, map,
       icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "#22c55e", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
-      title: "Your fence center",
     });
     setMainMarker(marker);
     const newCoords = { lat, lng };
     setCoords(newCoords);
     update("coords", newCoords);
-    // Reverse geocode
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      if (status === "OK" && results[0]) {
-        update("location", results[0].formatted_address);
-      }
+    new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === "OK" && results[0]) update("location", results[0].formatted_address);
     });
   };
 
   const geocodeSearch = () => {
     if (!campaign.location.trim() || !googleMap) return;
     setSearching(true);
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ address: campaign.location }, (results, status) => {
+    new window.google.maps.Geocoder().geocode({ address: campaign.location }, (results, status) => {
       setSearching(false);
       if (status === "OK" && results[0]) {
         const loc = results[0].geometry.location;
-        googleMap.setCenter(loc);
-        googleMap.setZoom(15);
+        googleMap.setCenter(loc); googleMap.setZoom(15);
         placeMainPin(googleMap, loc.lat(), loc.lng());
         update("location", results[0].formatted_address);
       }
@@ -1472,40 +1455,31 @@ function StepGeofence({ campaign, update, T }) {
   const searchCompetitors = () => {
     if (!compSearch.trim() || !coords || !googleMap) return;
     setCompSearching(true);
-    // Clear old competitor markers
     compMarkers.forEach(m => m.setMap(null));
-    setCompMarkers([]);
-    setCompetitors([]);
-
+    setCompMarkers([]); setCompetitors([]);
     const service = new window.google.maps.places.PlacesService(googleMap);
     service.nearbySearch({
-      location: coords,
-      radius: campaign.radius * 1609.34 * 2,
-      keyword: compSearch,
+      location: coords, radius: Math.min(campaign.radius * 1609.34 * 2, 50000), keyword: compSearch,
     }, (results, status) => {
       setCompSearching(false);
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-        setCompetitors(results.slice(0, 8));
-        // Place red pins for each competitor
-        const newMarkers = results.slice(0, 8).map((place, i) => {
-          const marker = new window.google.maps.Marker({
-            position: place.geometry.location,
-            map: googleMap,
-            icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#ef4444", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
-            title: place.name,
+      if (results?.length) {
+        const top = results.slice(0, 8);
+        setCompetitors(top);
+        const newMarkers = top.map((place, i) => {
+          const m = new window.google.maps.Marker({
+            position: place.geometry.location, map: googleMap,
+            icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#ef4444", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
             label: { text: String(i + 1), color: "#fff", fontSize: "10px", fontWeight: "bold" },
+            title: place.name,
           });
-          const infoWindow = new window.google.maps.InfoWindow({
-            content: `<div style="color:#000;padding:4px"><strong>${place.name}</strong><br/>${place.vicinity}</div>`
-          });
-          marker.addListener("click", () => infoWindow.open(googleMap, marker));
-          return marker;
+          const iw = new window.google.maps.InfoWindow({ content: `<div style="color:#000;padding:4px;font-size:13px"><strong>${place.name}</strong><br/>${place.vicinity || ""}</div>` });
+          m.addListener("click", () => iw.open(googleMap, m));
+          return m;
         });
         setCompMarkers(newMarkers);
-        // Fit map to show all results
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend(coords);
-        results.slice(0, 8).forEach(p => bounds.extend(p.geometry.location));
+        top.forEach(p => bounds.extend(p.geometry.location));
         googleMap.fitBounds(bounds);
       }
     });
@@ -1514,8 +1488,7 @@ function StepGeofence({ campaign, update, T }) {
   const fenceCompetitor = (place) => {
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
-    googleMap.setCenter({ lat, lng });
-    googleMap.setZoom(16);
+    googleMap.setCenter({ lat, lng }); googleMap.setZoom(16);
     placeMainPin(googleMap, lat, lng);
     update("location", place.vicinity || place.name);
     update("competitorName", place.name);
@@ -1524,52 +1497,38 @@ function StepGeofence({ campaign, update, T }) {
   return (
     <div>
       <SectionTitle step={3} title="Set your geofence" sub="Search an address or click the map to place your fence." T={T} />
-
-      {/* Search bar */}
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input value={campaign.location} onChange={e => update("location", e.target.value)}
           onKeyDown={e => e.key === "Enter" && geocodeSearch()}
-          placeholder="e.g. 123 Main St, Maple Grove MN or Home Depot, Minneapolis"
+          placeholder="e.g. 123 Main St, Maple Grove MN or Home Depot Minneapolis"
           style={{ flex: 1, background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 14px", color: T.text, fontSize: 13, outline: "none" }} />
         <button onClick={geocodeSearch} disabled={searching || !mapLoaded}
           style={{ padding: "10px 20px", background: T.accent, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" }}>
           {searching ? "..." : "📍 FIND"}
         </button>
       </div>
-
-      {/* Google Map */}
       <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`, marginBottom: 16 }}>
-        {!mapLoaded && (
-          <div style={{ height: 400, background: T.card, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13 }}>
-            Loading Google Maps...
-          </div>
-        )}
-        <div ref={mapDivRef} style={{ height: 400 }} />
+        {!mapLoaded && <div style={{ height: 400, background: T.card, display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, fontSize: 13 }}>Loading Google Maps...</div>}
+        <div ref={mapDivRef} style={{ height: 400, display: mapLoaded ? "block" : "none" }} />
       </div>
-
-      {/* Radius slider */}
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20, marginBottom: 16 }}>
         <label style={{ display: "block", fontSize: 11, letterSpacing: 2, color: T.muted, marginBottom: 8 }}>FENCE RADIUS: {campaign.radius} MILE{campaign.radius !== 1 ? "S" : ""}</label>
-        <input type="range" min={0.1} max={10} step={0.1} value={campaign.radius}
-          onChange={e => update("radius", parseFloat(e.target.value))}
-          style={{ width: "100%", accentColor: T.accent }} />
+        <input type="range" min={0.1} max={10} step={0.1} value={campaign.radius} onChange={e => update("radius", parseFloat(e.target.value))} style={{ width: "100%", accentColor: T.accent }} />
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, marginTop: 4 }}>
           <span>0.1 mi (hyperlocal)</span><span>5 mi</span><span>10 mi (broad)</span>
         </div>
       </div>
-
-      {/* Competitor Finder */}
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", letterSpacing: 2, marginBottom: 4 }}>⚔️ COMPETITOR FINDER</div>
-        <div style={{ fontSize: 11, color: T.muted, marginBottom: 12 }}>Search nearby businesses — red pins appear on the map. Click FENCE THIS to target them.</div>
+        <div style={{ fontSize: 11, color: T.muted, marginBottom: 12 }}>Red numbered pins appear on the map. Click FENCE THIS to target a competitor.</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <input value={compSearch} onChange={e => setCompSearch(e.target.value)}
             onKeyDown={e => e.key === "Enter" && searchCompetitors()}
-            placeholder="e.g. Staples, Best Buy, dental office, roofing company..."
+            placeholder="e.g. Office Depot, Staples, dental office, roofing company..."
             style={{ flex: 1, background: T.input, border: `1px solid ${T.border}`, borderRadius: 4, padding: "9px 12px", color: T.text, fontSize: 13, outline: "none" }} />
           <button onClick={searchCompetitors} disabled={compSearching || !coords || !mapLoaded}
-            style={{ padding: "9px 18px", background: compSearching ? T.border : "#ef444422", color: "#ef4444", border: "1px solid #ef444444", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-            {compSearching ? "..." : "SEARCH"}
+            style={{ padding: "9px 18px", background: "#ef444422", color: "#ef4444", border: "1px solid #ef444444", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+            {compSearching ? "SEARCHING..." : "SEARCH"}
           </button>
         </div>
         {!coords && <div style={{ fontSize: 11, color: T.muted }}>📍 Place a pin on the map first, then search for competitors nearby.</div>}
@@ -1578,7 +1537,7 @@ function StepGeofence({ campaign, update, T }) {
             {competitors.map((p, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
                   <div>
                     <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{p.name}</div>
                     <div style={{ fontSize: 11, color: T.muted }}>{p.vicinity}</div>
