@@ -504,12 +504,15 @@ function ClientsView({ clients, campaigns, T, onAdd, onEdit, onDelete, onRequest
 
 // ─── Access Request Modal ───────────────────────────────────────────────────
 
-const GOOGLE_MCC_ID = "YOUR-MCC-ID"; // Replace with your Google MCC ID
-const META_BUSINESS_ID = "YOUR-META-BUSINESS-ID"; // Replace with your Meta Business ID
+const GOOGLE_MCC_ID = import.meta.env.VITE_GOOGLE_MCC_ID || "YOUR-MCC-ID";
+const META_BUSINESS_ID = import.meta.env.VITE_META_BUSINESS_ID || "YOUR-META-BUSINESS-ID";
 
 function AccessRequestModal({ T, client, onClose }) {
   const [copied, setCopied] = useState("");
   const [activeTab, setActiveTab] = useState("email");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState("");
 
   const googleInstructions = `Hi ${client.contactName || client.businessName},
 
@@ -582,6 +585,31 @@ JR Copier of MN
     setTimeout(() => setCopied(""), 2500);
   };
 
+  const sendEmail = async (text, subjectLine) => {
+    if (!client.email) { setSendError("No email address on file for this client."); return; }
+    setSending(true); setSendError(""); setSent(false);
+    try {
+      const res = await fetch("/api/send-access-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: client.email,
+          clientName: client.contactName || client.businessName,
+          subject: subjectLine || "Action needed: Grant ad access for your campaigns",
+          body: text,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Send failed");
+      setSent(true);
+      setTimeout(() => setSent(false), 4000);
+    } catch(e) {
+      setSendError(e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: 620, maxHeight: "90vh", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -614,10 +642,19 @@ JR Copier of MN
               <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: 16, fontSize: 12, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "inherit", marginBottom: 12 }}>
                 {combinedEmail}
               </div>
-              <button onClick={() => copy(combinedEmail, "email")}
-                style={{ width: "100%", padding: "11px", background: copied === "email" ? "#22c55e" : T.accent+"22", border: `1px solid ${T.accent}`, color: copied === "email" ? "#000" : T.accent, borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
-                {copied === "email" ? "✓ COPIED!" : "📋 COPY EMAIL"}
-              </button>
+              {sendError && <div style={{ padding: "8px 12px", background: "#ef444422", border: "1px solid #ef4444", borderRadius: 4, fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{sendError}</div>}
+              {!client.email && <div style={{ padding: "8px 12px", background: "#f59e0b22", border: "1px solid #f59e0b", borderRadius: 4, fontSize: 11, color: "#f59e0b", marginBottom: 8 }}>⚠️ No email on file — add client email to send directly.</div>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => sendEmail(combinedEmail, "Action needed: Grant ad access for your campaigns")}
+                  disabled={sending || !client.email}
+                  style={{ flex: 2, padding: "11px", background: sent ? "#22c55e" : T.accent, color: "#000", border: "none", borderRadius: 4, cursor: client.email ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 13, letterSpacing: 1, opacity: !client.email ? 0.5 : 1 }}>
+                  {sending ? "SENDING..." : sent ? "✓ EMAIL SENT!" : `📧 SEND TO ${client.email || "CLIENT"}`}
+                </button>
+                <button onClick={() => copy(combinedEmail, "email")}
+                  style={{ flex: 1, padding: "11px", background: copied === "email" ? T.accent+"22" : "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                  {copied === "email" ? "✓ COPIED" : "📋 COPY"}
+                </button>
+              </div>
             </div>
           )}
 
@@ -647,10 +684,17 @@ JR Copier of MN
               </div>
 
               <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>Copy the email instructions to send to your client:</div>
-              <button onClick={() => copy(googleInstructions, "google")}
-                style={{ width: "100%", padding: "11px", background: copied === "google" ? "#22c55e" : T.accent+"22", border: `1px solid ${T.accent}`, color: copied === "google" ? "#000" : T.accent, borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
-                {copied === "google" ? "✓ COPIED!" : "📋 COPY GOOGLE INSTRUCTIONS"}
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => sendEmail(googleInstructions, "Action needed: Grant Google Ads access")}
+                  disabled={sending || !client.email}
+                  style={{ flex: 2, padding: "11px", background: sent ? "#22c55e" : T.accent, color: "#000", border: "none", borderRadius: 4, cursor: client.email ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 13, opacity: !client.email ? 0.5 : 1 }}>
+                  {sending ? "SENDING..." : sent ? "✓ SENT!" : "📧 SEND GOOGLE EMAIL"}
+                </button>
+                <button onClick={() => copy(googleInstructions, "google")}
+                  style={{ flex: 1, padding: "11px", background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                  {copied === "google" ? "✓ COPIED" : "📋 COPY"}
+                </button>
+              </div>
             </div>
           )}
 
@@ -680,10 +724,17 @@ JR Copier of MN
               </div>
 
               <div style={{ fontSize: 11, color: T.muted, marginBottom: 8 }}>Copy the email instructions to send to your client:</div>
-              <button onClick={() => copy(metaInstructions, "meta")}
-                style={{ width: "100%", padding: "11px", background: copied === "meta" ? "#22c55e" : "#1877F222", border: "1px solid #1877F244", color: copied === "meta" ? "#000" : "#1877F2", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
-                {copied === "meta" ? "✓ COPIED!" : "📋 COPY META INSTRUCTIONS"}
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => sendEmail(metaInstructions, "Action needed: Grant Meta Ads access")}
+                  disabled={sending || !client.email}
+                  style={{ flex: 2, padding: "11px", background: sent ? "#22c55e" : "#1877F2", color: "#fff", border: "none", borderRadius: 4, cursor: client.email ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 13, opacity: !client.email ? 0.5 : 1 }}>
+                  {sending ? "SENDING..." : sent ? "✓ SENT!" : "📧 SEND META EMAIL"}
+                </button>
+                <button onClick={() => copy(metaInstructions, "meta")}
+                  style={{ flex: 1, padding: "11px", background: "transparent", border: `1px solid ${T.border}`, color: T.muted, borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                  {copied === "meta" ? "✓ COPIED" : "📋 COPY"}
+                </button>
+              </div>
             </div>
           )}
         </div>
