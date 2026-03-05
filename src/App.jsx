@@ -116,6 +116,123 @@ const PLATFORM_CHECKLIST = {
   ],
 };
 
+
+const CONTRACTOR_TEMPLATES = [
+  {
+    id: "concrete",
+    icon: "🏗️",
+    label: "Concrete Contractor",
+    color: "#94a3b8",
+    description: "Driveways, patios, foundations",
+    campaign: {
+      goal: "conquest",
+      platform: "meta",
+      radius: 2,
+      ageMin: 35,
+      ageMax: 65,
+      gender: "all",
+      interests: ["Homeowners", "DIY & Home Improvement"],
+      headline: "Maple Grove's #1 Concrete Contractor",
+      body: "Cracked or faded driveway? We replace concrete driveways, patios & sidewalks. Free estimates — local, licensed & insured. Call today!",
+      cta: "Get Free Estimate",
+      dailyBudget: 40,
+      duration: 30,
+      name: "Concrete — Neighborhood Targeting",
+    },
+    targetIdeas: [
+      "Home Depot / Menards parking lots",
+      "Upscale residential neighborhoods",
+      "Real estate open houses",
+      "Landscape supply stores",
+      "HOA meeting locations",
+    ],
+    audienceTip: "Target homeowners 35-65 in neighborhoods where homes are 15-25 years old — driveways need replacing every 20-30 years.",
+    budgetTip: "Start with $40/day Meta + $30/day Google. One concrete job ($3,000-8,000) pays for months of ads.",
+    adTips: [
+      "Show before/after photos — dramatic visual impact",
+      "Mention financing options if available",
+      "Include 'Free Estimate' as your CTA always",
+      "Run seasonal: Spring (post-winter damage) and Fall (before freeze)",
+    ],
+  },
+  {
+    id: "roofing",
+    icon: "🏠",
+    label: "Roofing Contractor",
+    color: "#f97316",
+    description: "Roof replacement, repair, inspections",
+    campaign: {
+      goal: "foottraffic",
+      platform: "google",
+      radius: 5,
+      ageMin: 35,
+      ageMax: 65,
+      gender: "all",
+      interests: ["Homeowners", "DIY & Home Improvement", "Luxury Buyers"],
+      headline: "Storm Damage? Free Roof Inspection",
+      body: "Licensed roofing contractor serving the Twin Cities. Insurance claims welcome. Free inspections — same week appointments available. 20+ years experience.",
+      cta: "Schedule Inspection",
+      dailyBudget: 60,
+      duration: 30,
+      name: "Roofing — Storm Season Campaign",
+    },
+    targetIdeas: [
+      "Insurance agent offices",
+      "Home improvement stores (Home Depot, Menards, Lowe's)",
+      "Neighborhoods with older homes (30+ years)",
+      "Areas recently hit by hail or windstorm",
+      "Competing roofer locations",
+      "Real estate offices (buyers need roof inspections)",
+    ],
+    audienceTip: "After a hail storm, fence the affected zip codes immediately — highest-intent moment for roofing leads.",
+    budgetTip: "$50-75/day. One roof replacement = $8,000-20,000. Even 1 job per month at $50/day = massive ROI.",
+    adTips: [
+      "Lead with insurance — 'We handle your insurance claim'",
+      "Use urgency after storms: 'Recent hail damage in your area'",
+      "Show your license number and BBB rating",
+      "Video ads showing before/after replacements perform best",
+    ],
+  },
+  {
+    id: "general",
+    icon: "🔨",
+    label: "General Contractor",
+    color: "#22c55e",
+    description: "Remodeling, additions, full renovations",
+    campaign: {
+      goal: "awareness",
+      platform: "meta",
+      radius: 10,
+      ageMin: 30,
+      ageMax: 60,
+      gender: "all",
+      interests: ["Homeowners", "DIY & Home Improvement", "Luxury Buyers", "Shoppers"],
+      headline: "Transform Your Home — Local GC",
+      body: "Kitchen remodels, bathroom renovations, room additions & more. Licensed general contractor with 15+ years local experience. Free design consultation.",
+      cta: "Get Free Quote",
+      dailyBudget: 50,
+      duration: 45,
+      name: "General Contractor — Home Remodel",
+    },
+    targetIdeas: [
+      "Home & Garden shows / Expo centers",
+      "Kitchen & bath showrooms (IKEA, Floor & Decor)",
+      "Real estate offices (new buyers renovate)",
+      "Luxury neighborhoods",
+      "Permit offices (homeowners researching projects)",
+      "Interior design studios",
+    ],
+    audienceTip: "General contractors need longer campaigns (45-60 days) — remodeling decisions take weeks. Retarget anyone who engages.",
+    budgetTip: "$50/day across Meta + Google. Kitchen remodel = $25,000-75,000. Budget isn't the issue — trust is. Use ads to build credibility.",
+    adTips: [
+      "Portfolio photos are everything — show your best work",
+      "Collect Google reviews and mention the count in ads",
+      "Offer a free design consultation to reduce commitment barrier",
+      "Carousel ads work great — show multiple project types",
+    ],
+  },
+];
+
 const BLANK_CAMPAIGN = {
   goal: null, platform: null, location: "", radius: 1, fence_type: "circle",
   ageMin: 18, ageMax: 55, gender: "all", interests: [],
@@ -150,6 +267,118 @@ const pulse = `
 
 
 
+
+
+// ─── Templates View ────────────────────────────────────────────────────────────
+
+function TemplatesView({ T, onUseTemplate }) {
+  const [expanded, setExpanded] = useState(null);
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 32px" }}>
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 11, color: T.muted, letterSpacing: 3, marginBottom: 4 }}>QUICK START</div>
+        <div style={{ fontSize: 26, fontWeight: 700, color: T.text, marginBottom: 8 }}>Campaign Templates</div>
+        <div style={{ fontSize: 13, color: T.muted }}>Pre-built campaigns for contractor industries. Click USE TEMPLATE to launch a campaign with everything pre-filled.</div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {CONTRACTOR_TEMPLATES.map(t => (
+          <div key={t.id} style={{ background: T.card, border: `1px solid ${expanded === t.id ? t.color : T.border}`, borderRadius: 10, overflow: "hidden", transition: "border-color 0.2s" }}>
+            
+            {/* Header */}
+            <div style={{ padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ fontSize: 32 }}>{t.icon}</div>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: T.text }}>{t.label}</div>
+                  <div style={{ fontSize: 12, color: T.muted }}>{t.description}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setExpanded(expanded === t.id ? null : t.id)}
+                  style={{ padding: "8px 16px", background: "transparent", border: `1px solid ${T.border}`, borderRadius: 4, color: T.muted, cursor: "pointer", fontSize: 12 }}>
+                  {expanded === t.id ? "LESS ▲" : "DETAILS ▼"}
+                </button>
+                <button onClick={() => onUseTemplate(t)}
+                  style={{ padding: "8px 20px", background: t.color, color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 12, letterSpacing: 1 }}>
+                  USE TEMPLATE →
+                </button>
+              </div>
+            </div>
+
+            {/* Quick stats bar */}
+            <div style={{ borderTop: `1px solid ${T.border}`, display: "flex" }}>
+              {[
+                ["GOAL", t.campaign.goal?.toUpperCase()],
+                ["PLATFORM", t.campaign.platform?.toUpperCase()],
+                ["DAILY BUDGET", `$${t.campaign.dailyBudget}/day`],
+                ["DURATION", `${t.campaign.duration} days`],
+                ["RADIUS", `${t.campaign.radius} mi`],
+                ["AUDIENCE", `${t.campaign.ageMin}–${t.campaign.ageMax}`],
+              ].map(([label, val]) => (
+                <div key={label} style={{ flex: 1, padding: "10px 16px", borderRight: `1px solid ${T.border}` }}>
+                  <div style={{ fontSize: 9, color: T.muted, letterSpacing: 1.5, marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Expanded details */}
+            {expanded === t.id && (
+              <div style={{ borderTop: `1px solid ${T.border}`, padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, letterSpacing: 2, marginBottom: 12 }}>📍 WHERE TO PLACE YOUR FENCE</div>
+                  {t.targetIdeas.map((idea, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                      <span style={{ color: t.color, fontSize: 14, flexShrink: 0 }}>→</span>
+                      <span style={{ fontSize: 13, color: T.text }}>{idea}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, letterSpacing: 2, marginBottom: 12 }}>💡 AD COPY PREVIEW</div>
+                  <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: 14, marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 4 }}>{t.campaign.headline}</div>
+                    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6 }}>{t.campaign.body}</div>
+                    <div style={{ marginTop: 8, display: "inline-block", padding: "4px 12px", background: t.color+"33", border: `1px solid ${t.color}`, borderRadius: 3, fontSize: 11, color: t.color, fontWeight: 700 }}>{t.campaign.cta}</div>
+                  </div>
+
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, letterSpacing: 2, marginBottom: 8 }}>🎯 AUDIENCE TIP</div>
+                  <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6, marginBottom: 16 }}>{t.audienceTip}</div>
+
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, letterSpacing: 2, marginBottom: 8 }}>💰 BUDGET TIP</div>
+                  <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6 }}>{t.budgetTip}</div>
+                </div>
+
+                <div style={{ gridColumn: "span 2", borderTop: `1px solid ${T.border}`, paddingTop: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, letterSpacing: 2, marginBottom: 12 }}>✅ AD CREATIVE TIPS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {t.adTips.map((tip, i) => (
+                      <div key={i} style={{ display: "flex", gap: 8, padding: "10px 14px", background: T.bg, borderRadius: 6, border: `1px solid ${T.border}` }}>
+                        <span style={{ color: t.color, flexShrink: 0 }}>✓</span>
+                        <span style={{ fontSize: 12, color: T.text, lineHeight: 1.5 }}>{tip}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ gridColumn: "span 2", textAlign: "right" }}>
+                  <button onClick={() => onUseTemplate(t)}
+                    style={{ padding: "12px 32px", background: t.color, color: "#000", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>
+                    🚀 USE THIS TEMPLATE
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Clients View ─────────────────────────────────────────────────────────────
 
@@ -866,7 +1095,7 @@ export default function App() {
           {error && <span style={{ fontSize: 11, color: "#ef4444", marginRight: 8 }}>⚠ {error}</span>}
           <button onClick={() => setShowDocs(true)}
             style={{ padding: "6px 14px", borderRadius: 4, border: `1px solid ${T.border}`, background: "transparent", color: T.muted, cursor: "pointer", fontSize: 12, letterSpacing: 1 }}>📚 DOCS</button>
-          {[["dashboard","DASHBOARD"],["clients","CLIENTS"],["wizard","+ NEW CAMPAIGN"]].map(([v,label]) => (
+          {[["dashboard","DASHBOARD"],["templates","TEMPLATES"],["clients","CLIENTS"],["wizard","+ NEW CAMPAIGN"]].map(([v,label]) => (
             <button key={v} onClick={() => { setView(v); setStep(0); setLaunched(false); setError(null); }}
               style={{ padding: "6px 18px", borderRadius: 4, border: "1px solid", borderColor: view === v ? T.accent : T.border, background: view === v ? T.accent + "22" : "transparent", color: view === v ? T.accent : T.muted, cursor: "pointer", fontSize: 12, letterSpacing: 2 }}>
               {label}
@@ -885,6 +1114,12 @@ export default function App() {
         </div>
       </div>
 
+      {view === "templates" && <TemplatesView T={T} onUseTemplate={(t) => {
+        setCampaign(prev => ({ ...prev, ...t.campaign }));
+        setView("wizard");
+        setStep(0);
+        setLaunched(false);
+      }} />}
       {view === "dashboard" && <DashboardView campaigns={campaigns} loading={loading} onNew={() => setView("wizard")} onToggleStatus={handleToggleStatus} onDelete={handleDelete} T={T} clients={clients} selectedClient={selectedClient} setSelectedClient={setSelectedClient} />}
       {view === "clients" && <ClientsView clients={clients} campaigns={campaigns} T={T} onAdd={() => { setEditingClient(null); setShowClientModal(true); }} onEdit={(c) => { setEditingClient(c); setShowClientModal(true); }} onDelete={async (id) => { if (!confirm("Delete this client?")) return; await deleteClient(id); setClients(p => p.filter(c => c.id !== id)); }} />}
       {view === "wizard" && (launched
